@@ -2,4 +2,4 @@ venv
 *.env
 db.sqlite3
 *.pyc
-MLModel
+media/*

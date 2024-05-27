@@ -15,14 +15,33 @@ Including another URLconf
 """
 from django.urls import path, include
 from django.http import HttpResponse
+from django.conf import settings
+from django.conf.urls.static import static
+import os
+from rest_framework.response import Response
+from rest_framework.decorators import api_view
 
 def home(request):
     return HttpResponse("Welcome to home page!")
 
+@api_view(['GET'])
+def serve_drawing_file(request, drawing_type, file_name):
+    return Response({"detail": "File not found."}, status=404)
+
+
 urlpatterns = [
-    path('api/', include('AuthApp.urls')),
+    path('api/auth/', include('AuthApp.urls')),
+    path('api/', include('DrawingApp.urls')),
     path('api/', include('AdminApp.urls')),
-    path('', home)
-]
-# ]+static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    path('api/', include('StandardApp.urls')),
+    path('api/', include('ManualApp.urls')),
+    path('api/', include('NoticeApp.urls')),
+    path('api/', include('SIApp.urls')),
+    path('', home),
+    path('media/drawings/<str:drawing_type>/<str:file_name>', serve_drawing_file),
+    path('media/drawings/<str:drawing_type>/<str:file_name>/', serve_drawing_file)
+] 
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    #urlpatterns += [path('silk/', include('silk.urls', namespace='silk'))]
 
