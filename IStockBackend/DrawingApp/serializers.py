@@ -41,7 +41,7 @@ class DrawingListSerializer(serializers.ModelSerializer):
             }
         return None
     def get_files(self, obj):
-        return obj.files.select_related('drawing').all().values('id', 'file_name')
+        return obj.files.select_related('drawing').all().values('id', 'file_name').order_by('file_name')
     
     class Meta:
         model = Drawing

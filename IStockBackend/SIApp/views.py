@@ -301,7 +301,7 @@ class SirApiView(APIView):
                     
                 if instance.year_of_inspection != year_of_inspection:
                     log_details += f"Year of Inspection : {instance.year_of_inspection} ➡️ {year_of_inspection} |"
-                    instance.title = year_of_inspection
+                    instance.year_of_inspection = year_of_inspection
                     
                 if instance.description != description:
                     log_details += f"Description : {instance.description} ➡️ {description} |"

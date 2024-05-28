@@ -38,7 +38,7 @@ class SIR(models.Model):
     sir_number = models.CharField(max_length=100)
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
     unit = models.ForeignKey(Unit, on_delete=models.SET_NULL, null=True)
-    year_of_inspection = models.CharField(max_length=4)
+    year_of_inspection = models.CharField(max_length=10)
     compliance = models.CharField(max_length=3)
     description = models.TextField(null=True)
     attachment = models.FileField(upload_to="sir/")

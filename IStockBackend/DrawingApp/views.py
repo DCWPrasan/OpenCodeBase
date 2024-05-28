@@ -105,11 +105,10 @@ class DrawingApiView(APIView):
             query_params = {
                 'drawing_type': request.GET.get("drawing_type"),
                 'work_order_number__icontains': request.GET.get("work_order_number"),
-                'description__description__icontains': request.GET.get("description"),
                 'department__department_id': request.GET.get("department_id"),
                 'unit__unit_id': request.GET.get("unit_id"),
             }
-            
+            isDistinct = False
             for param, value in query_params.items():
                 if value:
                     filter_criteria &= Q(**{param: value})
@@ -120,6 +119,10 @@ class DrawingApiView(APIView):
             if file_present := request.GET.get("file_present"):
                 filter_criteria &= Q(is_file_present=(file_present == "Present"))
 
+            if description := request.GET.get("description"):
+                filter_criteria &= Q(description__description__icontains = description)
+                isDistinct = True
+                
             if query := request.GET.get("query"):
                 q_drawing_type, drawing_number = extract_drawing_type_number(query.upper())
                 if q_drawing_type:
@@ -139,16 +142,14 @@ class DrawingApiView(APIView):
             user_empyt_filter.extend(query)
             if request.user.role == "User" and query_params.get("drawing_type", None) and not any(user_empyt_filter):
                 return Response({"success": "True", "results": [], "count": 0}, status=200)
-            instance = Drawing.objects.select_related('department', 'unit', 'sub_volume').prefetch_related('files').filter(filter_criteria).order_by('drawing_number')
             
-            # .annotate(
-            #     drawing_number_int=CastInteger('drawing_number')
-            # ).order_by('drawing_number_int').distinct()
-            # instance = Drawing.objects.filter(filter_criteria).only(
-            #     'id', 'drawing_type', 'drawing_number', 'revision_version', 'is_layout', 'work_order_number', 'default_description'
-            # ).annotate(
-            #     drawing_number_int=CastInteger('drawing_number')
-            # ).order_by('drawing_number_int').distinct()
+            instance = Drawing.objects.select_related('department', 'unit', 'sub_volume').prefetch_related('files').filter(filter_criteria).order_by('drawing_number')
+            if isDistinct:
+                instance = Drawing.objects.select_related('department', 'unit', 'sub_volume').prefetch_related('files').filter(
+                filter_criteria).annotate(description_count=Count('description', distinct=True)).order_by('drawing_number_numeric')
+            else:
+                instance = Drawing.objects.select_related('department', 'unit', 'sub_volume').prefetch_related('files').filter(filter_criteria).order_by('drawing_number_numeric')
+            
             paginator = self.pagination_class()
             page = paginator.paginate_queryset(instance, request, view=self)
             if page is not None:

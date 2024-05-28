@@ -55,6 +55,7 @@ class Drawing(models.Model):
     default_description = models.TextField(null = True)
     drawing_type = models.CharField(max_length=20, choices=DRAWING_TYPE_CHOICE, default=DRAWING_TYPE_CHOICE[0][0], db_index=True)
     drawing_number = models.CharField(max_length=30, db_index=True)
+    drawing_number_numeric = models.BigIntegerField(null=True, db_index=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, db_index=True)
     unit = models.ForeignKey(Unit, on_delete=models.SET_NULL, null=True,db_index=True)
     sub_volume = models.ForeignKey(Subvolume, on_delete=models.SET_NULL, null=True, db_index=True)
@@ -90,6 +91,7 @@ class Drawing(models.Model):
             self.id = getId('dra_')
             while Drawing.objects.filter(id=self.id).exists():
                 self.id = getId('dra_')
+        self.drawing_number_numeric = int(''.join(filter(str.isdigit, self.drawing_number)) or 0)
         super(Drawing, self).save()
     
 def upload_path(instance, filename):
@@ -212,4 +214,5 @@ def removeDrawingFile(drawingFile):
         print("Drawing File Is Deleted")
     else:
         print("Drawing File Is Empty")
+
 
