@@ -1,142 +1,357 @@
 from rest_framework import serializers
-from AuthApp.models import User, Unit, Department, LogInOutLog, Subvolume,Volume
+from .models import (
+    Products,
+    Racks,
+    Stocks,
+    StocksHistory,
+    Barcodes,
+    ProductCategory,
+    Employees,
+    Unit
+)
+from AuthApp.models import Users, Designation
 
-class UserListSerializer(serializers.ModelSerializer):
-    def to_representation(self, obj):
-        ret = super(UserListSerializer, self).to_representation(obj)
-        ret['status'] = "Active" if obj.is_active else "Inactive"
-        ret['department'] = {
-                "id":obj.department.department_id,
-                "name":obj.department.name, 
-                "department_id":obj.department_id
-            } if obj.department else None
-        return ret
-    class Meta:
-        model = User
-        fields = ["id", "full_name", "email",  "personnel_number", "phone_number", "role", "designation"]
-        read_only_fields = fields
 
-class UserDetailSerializer(serializers.ModelSerializer):
+class RacksSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
-        ret = super(UserDetailSerializer, self).to_representation(obj)
-        ret['status'] = "Active" if obj.is_active else "Inactive"
-        ret['department'] = {
-                "id":obj.department.id,
-                "name":obj.department.name, 
-                "department_id":obj.department.department_id
-            } if obj.department else None
+        ret = super(RacksSerializer, self).to_representation(obj)
+        ret["product"] = obj.product if hasattr(obj, "product") else 0
+        ret["barcode_no"] = obj.barcode.barcode_no
+        ret["most_stock_product"] = (
+            obj.most_product_name if hasattr(obj, "most_product_name") else None
+        )
+        ret["most_stock_product_quantity"] = (
+            obj.most_product_qunatity if hasattr(obj, "most_product_qunatity") else 0
+        )
         return ret
+
     class Meta:
-        model = User
-        fields = ["id", "full_name", "profile_photo", "email", "personnel_number", "is_download_drawing", 
-                  "is_disable_dwg_file", "is_view_manual", "is_view_standard", "is_view_layout", 
-                  "phone_number", "last_login", "role", "designation", "address",
-                  "is_view_technical_calculation", "is_design_user"]
+        model = Racks
+        fields = ["id", "rack_no"]
         read_only_fields = fields
 
 
-class UserLoginLogoutLogListSerializer(serializers.ModelSerializer):
+class RacksProductDetailsSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
-        ret = super(UserLoginLogoutLogListSerializer, self).to_representation(obj)
-        ret['user'] = {
-            "id":obj.user.id,
-            "full_name":obj.user.full_name,
-            "personnel_number":obj.user.personnel_number,
+        ret = super(RacksProductDetailsSerializer, self).to_representation(obj)
+        rack_id = self.context.get("rack_id")
+        ret["stocks"] = (
+            Stocks.objects.select_related("product", "rack")
+            .filter(product=obj, rack__id=rack_id)
+            .values("barcode__barcode_no", "quantity", "source", "created_at")
+        )
+        return ret
+
+    class Meta:
+        model = Products
+        fields = ["id", "name", "ucs_code", "net_quantity"]
+        read_only_fields = fields
+
+
+class SearchRacksSerializer(serializers.ModelSerializer):
+    def to_representation(self, obj):
+        ret = super(SearchRacksSerializer, self).to_representation(obj)
+        ret["label"] = obj.rack_no
+        ret["value"] = obj.id
+        return ret
+
+    class Meta:
+        model = Racks
+        fields = []
+
+
+class SearchEmployeeSerializer(serializers.ModelSerializer):
+    def to_representation(self, obj):
+        ret = super(SearchEmployeeSerializer, self).to_representation(obj)
+        ret["label"] = f"{obj.name} ({obj.personnel_number})"
+        ret["value"] = obj.id
+        return ret
+
+    class Meta:
+        model = Employees
+        fields = []
+
+
+class ProductsSerializer(serializers.ModelSerializer):
+    def to_representation(self, obj):
+        ret = super(ProductsSerializer, self).to_representation(obj)
+        ret["unit"] = {"id": obj.unit.id, "name": obj.unit.name}
+        return ret
+    class Meta:
+        model = Products
+        fields = [
+            "id",
+            "name",
+            "ucs_code",
+            "net_quantity",
+            "price",
+            "unit",
+            "min_threshold",
+            "max_threshold",
+        ]
+        read_only_fields = fields
+
+
+class StocksSerializer(serializers.ModelSerializer):
+    def to_representation(self, obj):
+        ret = super(StocksSerializer, self).to_representation(obj)
+        ret["product"] = obj.product.name
+        ret["rack"] = obj.rack.rack_no
+        return ret
+
+    class Meta:
+        model = Stocks
+        fields = ["id", "quantity", "source"]
+        read_only_fields = fields
+
+
+class StocksHistorySerializer(serializers.ModelSerializer):
+    def to_representation(self, obj):
+        ret = super(StocksHistorySerializer, self).to_representation(obj)
+        ret["user"] = {"name": obj.user.name, "email": obj.user.name} if obj.user else None
+        ret["employee"] = (
+            {"name": obj.employee.name, "personnel_number": obj.employee.personnel_number}
+            if obj.employee
+            else None
+        )
+        ret["stock"] = {
+            "product": {
+                "name": obj.stock.product.name,
+                "id": obj.stock.product.id,
+                "ucs_code": obj.stock.product.ucs_code,
+                "price": obj.stock.product.price,
+            },
+            "rack": {"id": obj.stock.rack.id, "rack_no": obj.stock.rack.rack_no}
+            if obj.stock.rack
+            else None,
+            "source": obj.stock.source,
+            "barcode_no": obj.stock.barcode.barcode_no,
         }
-        ret['action_time'] = obj.action_time.strftime("%d %b %Y %I:%M %p")
+        ret["created_at"] = obj.created_at.strftime("%d %b %Y, %I:%M %p")
         return ret
+
     class Meta:
-        model = LogInOutLog
-        fields = ["id", "message", "details", "device_info"]
+        model = StocksHistory
+        fields = ["id", "quantity", "is_stock_out", "product_quantity", "purpose"]
         read_only_fields = fields
 
 
-class DepartmentSerializer(serializers.ModelSerializer):
+class BarcodeSerializer(serializers.ModelSerializer):
+    def to_representation(self, obj):
+        ret = super(BarcodeSerializer, self).to_representation(obj)
+        ret["product"] = (
+            {"id": obj.stocks.product.id, "name": obj.stocks.product.name}
+            if hasattr(obj, "stocks")
+            else None
+        )
+        ret["rack"] = (
+            {"id": obj.racks.id, "rack_no": obj.racks.rack_no}
+            if hasattr(obj, "racks")
+            else None
+        )
+        ret["created_at"] = obj.created_at.strftime("%Y-%m-%d %I:%M: %p")
+        return ret
+
     class Meta:
-        model = Department
-        fields = ["id", "department_id", "name"]
+        model = Barcodes
+        fields = ["id", "barcode_no", "status"]
         read_only_fields = fields
 
+
+class ProductsDetailsSerializer(serializers.ModelSerializer):
+    def to_representation(self, obj):
+        ret = super(ProductsDetailsSerializer, self).to_representation(obj)
+        ret["category"] = (
+            {"id": obj.category.id, "name": obj.category.name} if obj.category else None
+        )
+        ret["unit"] = {"id": obj.unit.id, "name": obj.unit.name}
+        return ret
+
+    class Meta:
+        model = Products
+        fields = [
+            "id",
+            "name",
+            "net_quantity",
+            "price",
+            "unit",
+            "min_threshold",
+            "max_threshold",
+            "is_mutli_type_unit",
+            "description",
+            "description_sap",
+            "ucs_code",
+            "lead_time",
+            "ved_category",
+        ]
+        read_only_fields = fields
+
+
+class UserSerializer(serializers.ModelSerializer):
+    def to_representation(self, obj):
+        ret = super(UserSerializer, self).to_representation(obj)
+        ret["designation"] = (
+            {"id": obj.designation.id, "name": obj.designation.name}
+            if obj.designation
+            else None
+        )
+        ret["status"] = "Active" if obj.is_active else "Inactive"
+        return ret
+
+    class Meta:
+        model = Users
+        fields = ["id", "name", "email", "mobile_number", "personnel_number"]
+        read_only_fields = fields
+
+
+class DesignationSerializer(serializers.ModelSerializer):
+    def to_representation(self, obj):
+        ret = super(DesignationSerializer, self).to_representation(obj)
+        ret["label"] = obj.name
+        ret["value"] = obj.id
+        return ret
+
+    class Meta:
+        model = Designation
+        fields = []
+        
 class UnitSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Unit
-        fields = ["id", "unit_id", "name"]
-        read_only_fields = fields
-
-class SubVolumeSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
-        ret = super(SubVolumeSerializer, self).to_representation(obj)
-        ret['volume'] = {
-            "id":obj.volume.id,
-            "name":obj.volume.name
-        }
-        return ret
-    class Meta:
-        model = Subvolume
-        fields = ["id", "sub_volume_no", "name"]
-        read_only_fields = fields
-
-
-### all search related dropdown api
-class SearchUnitSerializer(serializers.ModelSerializer):
-    def to_representation(self, obj):
-        ret = super(SearchUnitSerializer, self).to_representation(obj)
-        ret['label'] = obj.name
-        ret['value'] = obj.unit_id
+        ret = super(UnitSerializer, self).to_representation(obj)
+        ret["label"] = obj.name
+        ret["value"] = obj.id
         return ret
 
     class Meta:
         model = Unit
         fields = []
-        read_only_fields = fields
 
-class SearchDepartmentSerializer(serializers.ModelSerializer):
+
+class SearchMaterialSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
-        ret = super(SearchDepartmentSerializer, self).to_representation(obj)
-        ret['label'] = obj.name
-        ret['value'] = obj.department_id
+        ret = super(SearchMaterialSerializer, self).to_representation(obj)
+        ret["label"] = obj.name
+        ret["value"] = obj.id
         return ret
 
     class Meta:
-        model = Department
+        model = Products
         fields = []
-        read_only_fields = fields
-        
-class SearchVolumeSerializer(serializers.ModelSerializer):
+
+
+class EmployeeSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
-        ret = super(SearchVolumeSerializer, self).to_representation(obj)
-        ret['label'] = obj.sub_volume_no
-        ret['value'] = obj.sub_volume_no
+        ret = super(EmployeeSerializer, self).to_representation(obj)
+        ret["material"] = obj.product if hasattr(obj, "product") else 0
         return ret
 
     class Meta:
-        model = Subvolume
-        fields = []
-        read_only_fields = fields
-        
-class SearchRSVolumeSerializer(serializers.ModelSerializer):
+        model = Employees
+        fields = ["id", "name", "personnel_number", "phone"]
+
+
+class ProductCategorySerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
-        ret = super(SearchRSVolumeSerializer, self).to_representation(obj)
-        ret['label'] = obj.name
-        ret['value'] = obj.id
+        ret = super(ProductCategorySerializer, self).to_representation(obj)
+        ret["label"] = obj.name
+        ret["value"] = obj.id
         return ret
 
     class Meta:
-        model = Volume
+        model = ProductCategory
         fields = []
-        read_only_fields = fields
 
 
-class SearchUserSerializer(serializers.ModelSerializer):
-    def to_representation(self, obj):
-        ret = super(SearchUserSerializer, self).to_representation(obj)
-        ret['label'] = f'{obj.full_name} ({obj.personnel_number})'
-        ret['value'] = obj.id
-        return ret
+# report
+
+
+class ReportMaterialSerializer(serializers.Serializer):
+    material_name = serializers.CharField(source="stock__product__name")
+    ucs_code = serializers.CharField(source="stock__product__ucs_code")
+    total_stock_in = serializers.IntegerField()
+    total_stock_in_price = serializers.IntegerField()
+    total_stock_out = serializers.IntegerField()
+    total_stock_out_price = serializers.IntegerField()
 
     class Meta:
-        model = User
-        fields = []
+        fields = (
+            "material_name",
+            "ucs_code",
+            "total_stock_in",
+            "total_stock_in_price",
+            "total_stock_out",
+            "total_stock_out_price",
+        )
+
+
+class ReportMaterialTransacrionSerializer(serializers.Serializer):
+    material_name = serializers.CharField(source="stock__product__name")
+    ucs_code = serializers.CharField(source="stock__product__ucs_code")
+    total_stock_in = serializers.IntegerField()
+    total_stock_out = serializers.IntegerField()
+    date = serializers.DateField(source="created_at__date", format="%d %b %Y")
+
+    class Meta:
+        fields = (
+            "material_name",
+            "ucs_code",
+            "total_stock_in",
+            "total_stock_out",
+            "date",
+        )
+
+
+class ReportFastReceiveMovingItemSerializer(serializers.Serializer):
+    material_name = serializers.CharField(source="name")
+    ucs_code = serializers.CharField()
+    quantity = serializers.IntegerField()
+
+    class Meta:
+        fields = ("material_name", "ucs_code", "quantity")
+
+
+class CrirticalReorderItemSerializer(serializers.ModelSerializer):
+    material_name = serializers.CharField(source="name")
+
+    class Meta:
+        model = Products
+        fields = ("material_name", "ucs_code", "net_quantity", "min_threshold")
         read_only_fields = fields
 
 
+class ReportEmployeeSerializer(serializers.Serializer):
+    employee_name = serializers.CharField(source="employee__name")
+    employee_personnel_number = serializers.CharField(source="employee__personnel_number")
+    material_name = serializers.CharField(source="stock__product__name")
+    ucs_code = serializers.CharField(source="stock__product__ucs_code")
+    total_stock_out = serializers.IntegerField()
+    total_stock_out_price = serializers.IntegerField()
+
+    class Meta:
+        fields = (
+            "employee_name",
+            "employee_personnel_number",
+            "material_name",
+            "ucs_code",
+            "total_stock_out",
+            "total_stock_out_price",
+        )
+
+
+class ReportMaterialUsageSerializer(serializers.Serializer):
+    purpose = serializers.CharField()
+    material_name = serializers.CharField(source="stock__product__name")
+    ucs_code = serializers.CharField(source="stock__product__ucs_code")
+    total_stock_out = serializers.IntegerField()
+
+    class Meta:
+        fields = ("purpose", "material_name", "ucs_code", "total_stock_out")
+
+
+class ReportDeadStockItemSerializer(serializers.Serializer):
+    material_name = serializers.CharField(source="name")
+    ucs_code = serializers.CharField()
+    net_quantity = serializers.IntegerField()
+
+    class Meta:
+        fields = ("material_name", "ucs_code", "net_quantity")
