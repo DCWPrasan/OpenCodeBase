@@ -2,8 +2,10 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated
 from django.contrib.auth import get_user_model
 import jwt
-from AdminApp.utils import Syserror
+from core.utility import Syserror
 from django.conf import settings
+from functools import wraps
+from rest_framework.response import Response
 
 # custom_auth.py
 
@@ -11,6 +13,9 @@ from django.conf import settings
 class CustomAuthentication(BaseAuthentication):
     def authenticate(self, request):
         token = request.COOKIES.get(settings.JWT_TOKEN_NAME)
+        if not token:
+            if authtoken := request.headers.get('Authorization', None):
+                token = authtoken.split(' ')[1]
         User = get_user_model()
         if not token:
             raise NotAuthenticated("Authentication credentials were not provided.")
@@ -22,6 +27,9 @@ class CustomAuthentication(BaseAuthentication):
             
             user_id = decoded_token["user_id"]
             user = User.objects.get(id=user_id)
+
+            if user.jti_token != decoded_token["jti"]:
+                raise AuthenticationFailed("This account was login with another device")
 
         except jwt.ExpiredSignatureError:
             raise NotAuthenticated("Authentication credentials were expried.")
@@ -41,3 +49,20 @@ class CustomAuthentication(BaseAuthentication):
 def JWTEncrytpToken(payload):
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
+
+
+def allowed_superadmin(view_func):
+    @wraps(view_func)
+    def wrapper(_, request, *args, **kwargs):
+        if request.user.role != "SuperAdmin":
+            return Response({"success": False, "message": "You do not have permission to access this resource."}, status=400)
+        return view_func(_, request, *args, **kwargs)
+    return wrapper
+
+def allowed_admin_user(view_func):
+    @wraps(view_func)
+    def wrapper(_, request, *args, **kwargs):
+        if request.user.role not in ["SuperAdmin", "Admin"]:
+            return Response({"success": False, "message": "You do not have permission to access this resource."}, status=400)
+        return view_func(_, request, *args, **kwargs)
+    return wrapper
