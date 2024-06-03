@@ -3205,3 +3205,18 @@ def update_drawing_numeric_numbers():
     for drawing in drawings:
         drawing.drawing_number_numeric = int(''.join(filter(str.isdigit, drawing.drawing_number)) or 0)
         drawing.save()
+
+def update_standard_numeric_numbers():
+    from StandardApp.models import Standard
+    standards = Standard.objects.all()
+    for standard in standards:
+        standard.standard_no_numeric = int(''.join(filter(str.isdigit, standard.standard_no)) or 0)
+        standard.save()
+
+def update_manual_numeric_numbers():
+    from ManualApp.models import Manual
+    manuals = Manual.objects.all()
+    for manual in manuals:
+        manual.manual_no_numeric = int(''.join(filter(str.isdigit, manual.manual_no)) or 0)
+        manual.save()
+

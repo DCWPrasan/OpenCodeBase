@@ -7,7 +7,7 @@ from SIApp.models import SIR, StabilityCertification, Compliance
 from StandardApp.models import Standard, StandardLog
 from ManualApp.models import Manual, ManualLog
 from SIApp.models import SIRLog, StabilityCertificationLog, ComplianceLog
-from django.db.models import Q, Sum, Count, Prefetch
+from django.db.models import Q, Sum, Count
 from django.db.models.functions import Coalesce
 from core.utility import Syserror, parse_user_agent
 from datetime import datetime, timedelta
@@ -22,6 +22,7 @@ from AdminApp.serializers import (
     SearchUserSerializer,
     SearchVolumeSerializer,
     SubVolumeSerializer,
+    VolumeSerializer,
     SearchRSVolumeSerializer
 )
 import re
@@ -59,15 +60,13 @@ class DashboardApiView(APIView):
                 drawing_logs = list(drawing_log[:10])  # Convert queryset to list for slicing
                 data['drawing_log']  = DrawingLogListSerializer(drawing_logs, many=True).data
                 drawing_counts = Drawing.objects.aggregate(
-                    pending=Count("id", filter=Q(is_approved=False, is_archive=False, is_file_present=False)),
-                    ready_approve=Count("id", filter=Q(is_approved=False, is_archive=False, is_file_present=True)),
+                    pending=Count("id", filter=Q(is_approved=False, is_archive=False)),
                     approved=Count("id", filter=Q(is_approved=True, is_archive=False)),
                     archived=Count("id", filter=Q(is_archive=True)),
                 )
 
                 data["drawing_count"] = {
                     "pending": drawing_counts["pending"] or 0,
-                    "ready_to_approve": drawing_counts["ready_approve"] or 0,
                     "approved": drawing_counts["approved"] or 0,
                     "archived": drawing_counts["archived"] or 0,
                 }
@@ -181,9 +180,7 @@ class DashboardDrawingLogGraphView(APIView):
     def get(self, request):
         try:
             time_period = request.GET.get("time_period", "weekly")
-            drawing_type = request.GET.get("drawing_type", "PDR")
-            drawing_views = []
-            drawing_downloads = []
+            drawing_log_count = []
             labels = []
 
             from_date = datetime.now().date()
@@ -194,26 +191,20 @@ class DashboardDrawingLogGraphView(APIView):
 
             date_list = [to_date + timedelta(days=x) for x in range((from_date - to_date).days + 1)]
 
-            filter_criteria = Q(action_time__date__in=date_list, user=request.user, drawing__drawing_type=drawing_type, status__in = ["View Drawing", "Download Drawing"])
-            log_items = DrawingLog.objects.filter(filter_criteria).values("action_time__date").annotate(
-                view=Coalesce(Count("id", filter=Q(status="View Drawing")), 0),
-                download=Coalesce(Count("id", filter=Q(status="Download Drawing")), 0),
+            log_items = DrawingLog.objects.filter(action_time__date__in=date_list, user=request.user, status__in = ["View Drawing", "Download Drawing"]).values("action_time__date").annotate(
+                log_count=Coalesce(Count("id"), 0)
             )
 
             log_dict = {item["action_time__date"]: item for item in log_items}
 
             for date in date_list:
-                log_item = log_dict.get(date, {"view": 0, "download": 0})
-                drawing_views.append(log_item["view"])
-                drawing_downloads.append(log_item["download"])
+                log_item = log_dict.get(date, {"log_count": 0})
+                drawing_log_count.append(log_item["log_count"])
                 labels.append(date.strftime("%d-%b"))
 
             data = {
                 "labels": labels,
-                "series": [
-                    {"name": "View Drawings", "data": drawing_views},
-                    {"name": "Download Drawings", "data": drawing_downloads},
-                ],
+                "drawing_log_count":{"name": "Drawings Count", "data": drawing_log_count},
             }
             response = {
                 "success": True,
@@ -226,16 +217,50 @@ class DashboardDrawingLogGraphView(APIView):
             response = {"success": False, "message": str(e)}
             return Response(response, status=400)
 
+class DashboardLogInGraphView(APIView):
+    def get(self, request):
+        try:
+
+            login_data = []
+            labels = []
+
+            from_date = datetime.now().date()
+            to_date = from_date - timedelta(days=30)
+
+            date_list = [to_date + timedelta(days=x) for x in range((from_date - to_date).days + 1)]
+
+            filter_criteria = Q(action_time__date__in=date_list, user=request.user, message = "Login")
+            log_items = LogInOutLog.objects.filter(filter_criteria).values("action_time__date").annotate(view=Coalesce(Count("id"), 0))
+
+            log_dict = {item["action_time__date"]: item for item in log_items}
+
+            for date in date_list:
+                log_item = log_dict.get(date, {"view": 0})
+                login_data.append(log_item["view"])
+                labels.append(date.strftime("%d-%b"))
+
+            data = {
+                "labels": labels,
+                "weekly":{"name": "Login Count", "data": login_data[-7:]},
+                "monthly":{"name": "Login Count", "data": login_data}
+            }
+            response = {
+                "success": True,
+                "message": "Dashboard Standard Log Graph",
+                "results": data,
+            }
+            return Response(response, status=200)
+        except Exception as e:
+            # Log the error properly
+            response = {"success": False, "message": str(e)}
+            return Response(response, status=400)
 
 class DashboardStandardLogGraphView(APIView):
     def get(self, request):
         try:
             time_period = request.GET.get("time_period", "weekly")
-            stanard_type = request.GET.get("standard_type", "RSN")
             log_views = []
-            log_downloads = []
             labels = []
-
             from_date = datetime.now().date()
             if time_period == "weekly":
                 to_date = from_date - timedelta(days=6)
@@ -244,8 +269,7 @@ class DashboardStandardLogGraphView(APIView):
 
             date_list = [to_date + timedelta(days=x) for x in range((from_date - to_date).days + 1)]
 
-            filter_criteria = Q(action_time__date__in=date_list, user=request.user, standard__standard_type=stanard_type, status = "View Standard")
-            log_items = StandardLog.objects.filter(filter_criteria).values("action_time__date").annotate(view=Coalesce(Count("id"), 0))
+            log_items = StandardLog.objects.filter(action_time__date__in=date_list, user=request.user, status = "View Standard").values("action_time__date").annotate(view=Coalesce(Count("id"), 0))
 
             log_dict = {item["action_time__date"]: item for item in log_items}
 
@@ -256,9 +280,7 @@ class DashboardStandardLogGraphView(APIView):
 
             data = {
                 "labels": labels,
-                "series": [
-                    {"name": "View Standards", "data": log_views},
-                ],
+                "standard_count":{"name": "Standards Count", "data": log_views}
             }
             response = {
                 "success": True,
@@ -276,9 +298,7 @@ class DashboardManualLogGraphView(APIView):
     def get(self, request):
         try:
             time_period = request.GET.get("time_period", "weekly")
-            manual_type = request.GET.get("manual_type", "MANUALS")
             log_views = []
-            log_downloads = []
             labels = []
 
             from_date = datetime.now().date()
@@ -288,9 +308,7 @@ class DashboardManualLogGraphView(APIView):
                 to_date = from_date - timedelta(days=30)
 
             date_list = [to_date + timedelta(days=x) for x in range((from_date - to_date).days + 1)]
-
-            filter_criteria = Q(action_time__date__in=date_list, user=request.user, manual__manual_type=manual_type, status = "View Document")
-            log_items = ManualLog.objects.filter(filter_criteria).values("action_time__date").annotate(view=Coalesce(Count("id"), 0))
+            log_items = ManualLog.objects.filter(action_time__date__in=date_list, user=request.user, status = "View Document").values("action_time__date").annotate(view=Coalesce(Count("id"), 0))
 
             log_dict = {item["action_time__date"]: item for item in log_items}
 
@@ -301,9 +319,7 @@ class DashboardManualLogGraphView(APIView):
 
             data = {
                 "labels": labels,
-                "series": [
-                    {"name": "View Documents", "data": log_views},
-                ],
+                "document_count":{"name": "Documents Count", "data": log_views}
             }
             response = {
                 "success": True,
@@ -351,7 +367,7 @@ class DashboardSILogGraphView(APIView):
 
             data = {
                 "labels": labels,
-                "series": [{"name": f"View {si_type}", "data": log_views}],
+                "si_count": {"name": f"{si_type} Count", "data": log_views},
             }
             response = {
                 "success": True,
@@ -1361,7 +1377,130 @@ class UnitApiView(APIView):
             return Response(response, status=400)
 
 
-class VolumeApiView(APIView):
+class RSVolumeApiView(APIView):
+    pagination_class = CustomPagination
+    serializer_class = VolumeSerializer
+
+    def get(self, request):
+        try:
+            if query := request.GET.get("query", None):
+                instance = Volume.objects.only('name').filter(name__icontains=query).order_by("volume_id")
+            else:
+                instance = Volume.objects.only('name').all().order_by("volume_id")
+
+            paginator = self.pagination_class()
+            page = paginator.paginate_queryset(instance, request, view=self)
+
+            if page is not None:
+                serializer = self.serializer_class(page, many=True)
+                result = paginator.get_paginated_response(serializer.data)
+                return result
+
+            serializer = self.serializer_class(instance, many=True)
+            return Response({"results": serializer.data}, status=200)
+        except Exception as e:
+            Syserror(e)
+            response = {"success": False, "message": str(e)}
+            return Response(response, status=400)
+
+    @allowed_admin_user
+    def post(self, request):
+        try:
+            with transaction.atomic():
+                data = request.data
+                name = data.get("name", None)
+                if not name:
+                    response = {
+                        "success": False,
+                        "message": "Required name",
+                    }
+                    return Response(response, status=400)
+                if Volume.objects.filter(name=name).exists():
+                    response = {
+                        "success": False,
+                        "message": "Volume name already exists.",
+                    }
+                    return Response(response, status=400)
+                
+                instance = Volume.objects.create(name=name)
+                response = {
+                    "success": True,
+                    "message": "Volume created  successfully.",
+                    "results": self.serializer_class(instance).data,
+                }
+                return Response(response, status=200)
+        except Exception as e:
+            Syserror(e)
+            response = {
+                "success": False,
+                "message": str(e),
+            }
+            return Response(response, status=400)
+
+    @allowed_admin_user
+    def put(self, request):
+        try:
+            with transaction.atomic():
+                data = request.data
+                name = data.get("name", None)
+                id = data.get("id", None)
+                if not name and not id:
+                    response = {
+                        "success": False,
+                        "message": "Required all field",
+                    }
+                    return Response(response, status=400)
+                try:
+                    volume = Volume.objects.get(id = id)
+                except:
+                    response = {
+                        "success": False,
+                        "message": "Volume not found",
+                    }
+                    return Response(response, status=400)
+                
+                volume.name=name
+                volume.save()
+                response = {
+                    "success": True,
+                    "message": "volume Updated  successfully.",
+                    "results": self.serializer_class(volume).data,
+                }
+                return Response(response, status=200)
+        except Exception as e:
+            Syserror(e)
+            response = {
+                "success": False,
+                "message": str(e),
+            }
+            return Response(response, status=400)
+
+    @allowed_admin_user
+    def delete(self, request):
+        try:
+            if id := request.GET.get("id", None):
+                try:
+                    Volume.objects.get(id = id).delete()
+                except:
+                    response = {
+                        "success": False,
+                        "message": "Volume not found",
+                    }
+                    return Response(response, status=400)
+            else:
+                response = {
+                        "success": False,
+                        "message": "Required Volume ID",
+                    }
+                return Response(response, status=400)
+            return Response({"success": False, "message": "Volume deleted successfully", "results": id}, status=200)
+        except Exception as e:
+            Syserror(e)
+            response = {"success": False, "message": str(e)}
+            return Response(response, status=400)
+        
+
+class RSSubVolumeApiView(APIView):
     pagination_class = CustomPagination
     serializer_class = SubVolumeSerializer
 
@@ -1504,7 +1643,29 @@ class VolumeApiView(APIView):
             }
             return Response(response, status=400)
 
-
+    @allowed_admin_user
+    def delete(self, request):
+        try:
+            if id := request.GET.get("id", None):
+                try:
+                    Subvolume.objects.get(id = id).delete()
+                except:
+                    response = {
+                        "success": False,
+                        "message": "Sub Volume not found",
+                    }
+                    return Response(response, status=400)
+            else:
+                response = {
+                        "success": False,
+                        "message": "Required Volume ID",
+                    }
+                return Response(response, status=400)
+            return Response({"success": False, "message": "SUb Volume deleted successfully", "results": id}, status=200)
+        except Exception as e:
+            Syserror(e)
+            response = {"success": False, "message": str(e)}
+            return Response(response, status=400)
 # all search related api for dropdown
 
 

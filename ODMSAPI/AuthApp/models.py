@@ -47,6 +47,11 @@ class Volume(models.Model):
     name = models.CharField(max_length=300)
 
     def save(self, *args, **kwargs):
+        if not self.volume_id:
+            self.volume_id = Volume.objects.all().count()
+            while Volume.objects.filter(volume_id=self.volume_id).exists():
+                self.volume_id = Volume.objects.all().count() + 1
+
         if not self.id:
             self.id = getId("vol_")
             while Volume.objects.filter(id=self.id).exists():

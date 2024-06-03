@@ -132,7 +132,7 @@ class DrawingApiView(APIView):
                 return Response({"success": True, "results": [], "count": 0}, status=200)
             
             user_empyt_filter = list(query_params.values())[1:]
-            user_empyt_filter.extend(query)
+            user_empyt_filter.extend([query, description])
             if request.user.role == "User" and query_params.get("drawing_type", None) and not any(user_empyt_filter):
                 return Response({"success": "True", "results": [], "count": 0}, status=200)
             
@@ -1064,21 +1064,27 @@ class UploadDrawingFileApiView(APIView):
 
 
 class ApproveDrawingApiView(APIView):  # for pending drawing
-
+    pagination_class = CustomPagination  # Set the custom pagination class
+    serializer_class = DrawingPendingListSerializer
     @allowed_superadmin
     def get(self, request):
         instance = (
             Drawing.objects.select_related('department', 'unit', 'sub_volume').prefetch_related('files')
-            .filter(is_archive=False, is_approved=False, files__isnull = False)
+            .filter(is_archive=False, is_approved=False)
             .order_by("drawing_number_numeric")
         )
-        serializer = DrawingPendingListSerializer(instance, many=True)
-        response = {
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(instance, request, view=self)
+        if page is not None:
+            serializer = self.serializer_class(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = DrawingListSerializer(instance, many=True)
+        return Response({
             "success": True,
             "message": "Pending Drawing List",
             "results": serializer.data,
-        }
-        return Response(response, status=200)  # Set the custom pagination class
+            }, status=200)
 
     @allowed_superadmin
     def post(self, request):

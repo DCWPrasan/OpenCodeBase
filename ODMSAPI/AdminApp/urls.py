@@ -3,6 +3,7 @@ from AdminApp import views
 
 urlpatterns = [
     path("dashboard", views.DashboardApiView.as_view()),
+    path("login_log_graph", views.DashboardLogInGraphView.as_view()),
     path("drawing_log_graph", views.DashboardDrawingLogGraphView.as_view()),
     path("standard_log_graph", views.DashboardStandardLogGraphView.as_view()),
     path("manual_log_graph", views.DashboardManualLogGraphView.as_view()),
@@ -30,7 +31,8 @@ urlpatterns = [
     path("department/<str:id>", views.UserApiView.as_view()),
     path("unit", views.UnitApiView.as_view()),
     path("unit/<str:id>", views.UnitApiView.as_view()),
-    path("volume", views.VolumeApiView.as_view()),
+    path("rs_volume", views.RSVolumeApiView.as_view()),
+    path("rs_sub_volume", views.RSSubVolumeApiView.as_view()),
     path("search/unit", views.SearchUnitApiView.as_view()),
     path("search/department", views.SearchDepartmentApiView.as_view()),
     path("search/volume", views.SearchVolumeApiView.as_view()),

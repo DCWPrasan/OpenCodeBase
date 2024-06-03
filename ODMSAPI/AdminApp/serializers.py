@@ -76,6 +76,12 @@ class SubVolumeSerializer(serializers.ModelSerializer):
         fields = ["id", "sub_volume_no", "name"]
         read_only_fields = fields
 
+class VolumeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Volume
+        fields = ["id", "name", "volume_id"]
+        read_only_fields = fields
+
 
 ### all search related dropdown api
 class SearchUnitSerializer(serializers.ModelSerializer):

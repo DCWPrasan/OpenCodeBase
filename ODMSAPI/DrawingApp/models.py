@@ -91,7 +91,7 @@ class Drawing(models.Model):
             self.id = getId('dra_')
             while Drawing.objects.filter(id=self.id).exists():
                 self.id = getId('dra_')
-        self.drawing_number_numeric = int(''.join(filter(str.isdigit, self.drawing_number)) or 0)
+        self.drawing_number_numeric = int(''.join(filter(str.isdigit, str(self.drawing_number))) or 0)
         super(Drawing, self).save()
     
 def upload_path(instance, filename):
