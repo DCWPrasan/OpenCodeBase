@@ -16,6 +16,7 @@ MANUAL_TYPE_CHOICE = [
     ("TECHNICAL SPECIFICATION","TECHNICAL SPECIFICATION"),
     ("TECHNICAL REPORT","TECHNICAL REPORT"),
     ("PROJECT REPORT","PROJECT REPORT"),
+    ("PROJECT SUBMITTED DRAWINGS","PROJECT SUBMITTED DRAWINGS"),
 ]
 
 MANUAL_LOG_STATUS_CHOICE = [
@@ -40,8 +41,11 @@ class Manual(models.Model):
     letter_no = models.CharField(max_length=100, null=True)
     registration_date = models.CharField(max_length=10,null=True)
     description = models.TextField(null=True)
+    title = models.TextField(null=True)
     remarks = models.TextField(null=True)
     upload_file = models.FileField(upload_to="manual/", null=True) # all model
+    dwg_zip_file = models.FileField(upload_to="manual/", null=True) # all model
+    file_type = models.CharField(max_length=4, null=True)
     editor = models.CharField(max_length=100, null=True)
     source = models.CharField(max_length=100, null=True)
     author = models.CharField(max_length=100, null= True) # reference book
@@ -87,6 +91,10 @@ def manual_model_post_delete(sender, instance, **kwargs):
             file_path = instance.upload_file.path
             if os.path.isfile(file_path):
                 os.remove(file_path)
+        if instance.dwg_zip_file:
+            dwg_file_path = instance.dwg_zip_file.path
+            if os.path.isfile(dwg_file_path):
+                os.remove(dwg_file_path)
         else:
             print("Failed to Delete Manual attachment.")
     except Exception as e:

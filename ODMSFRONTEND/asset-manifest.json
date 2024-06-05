@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/static/css/main.8db4ce68.css",
-    "main.js": "/static/js/main.57eb98ec.js",
+    "main.js": "/static/js/main.b8ba1dc8.js",
     "static/js/453.98b0b9ac.chunk.js": "/static/js/453.98b0b9ac.chunk.js",
     "static/media/materialdesignicons-webfont.svg?v=2.4.85": "/static/media/materialdesignicons-webfont.6285372902a5d4634762.svg",
     "static/media/la-brands-400.svg": "/static/media/la-brands-400.331115337bc9be66667a.svg",
@@ -49,8 +49,10 @@
     "static/media/Flaticon.woff": "/static/media/Flaticon.ca86721fde1c0713ea4d.woff",
     "static/media/intelilogotext.png": "/static/media/intelilogotext.92b91ee0cc3a028b5c11.png",
     "static/media/logo_text.png": "/static/media/logo_text.d96e1d038eed3ed2eab5.png",
+    "static/media/Greatplacetoworkwithbg.png": "/static/media/Greatplacetoworkwithbg.84a4efc6315ef7e68f15.png",
     "static/media/la-regular-400.eot": "/static/media/la-regular-400.77111476f05dd3443047.eot",
     "static/media/la-regular-400.ttf": "/static/media/la-regular-400.cf246e21218cab398b3d.ttf",
+    "static/media/MeraSAILMeraGauravbg.png": "/static/media/MeraSAILMeraGauravbg.a0e700b15460535db8dd.png",
     "static/media/licensing.png": "/static/media/licensing.2d57d98c5eb49246c48b.png",
     "static/media/Simple-Line-Icons4c82.woff2?-i3a2kk": "/static/media/Simple-Line-Icons4c82.a736074699ec538328fe.woff2",
     "static/media/avasta.eot": "/static/media/avasta.568a19c253fb383257be.eot",
@@ -98,11 +100,11 @@
     "static/media/fa-v4compatibility.woff2": "/static/media/fa-v4compatibility.3d503f89ccaf1b224aa5.woff2",
     "index.html": "/index.html",
     "main.8db4ce68.css.map": "/static/css/main.8db4ce68.css.map",
-    "main.57eb98ec.js.map": "/static/js/main.57eb98ec.js.map",
+    "main.b8ba1dc8.js.map": "/static/js/main.b8ba1dc8.js.map",
     "453.98b0b9ac.chunk.js.map": "/static/js/453.98b0b9ac.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.8db4ce68.css",
-    "static/js/main.57eb98ec.js"
+    "static/js/main.b8ba1dc8.js"
   ]
 }

@@ -100,7 +100,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     role = models.CharField(default=USER_ROLE_CHOICES[0][0], choices=USER_ROLE_CHOICES, max_length=10)
     designation = models.CharField(max_length=150)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True)
-    address = models.TextField(null=True)
     jti_token = models.CharField(max_length=50, null=True, unique = True)  # Store session token
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)

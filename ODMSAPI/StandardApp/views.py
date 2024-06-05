@@ -1107,17 +1107,25 @@ class StandardAPIView(APIView):
                 if instance.standard_type != "IPSS":
                     if file:
                         log_details += f"Upload File : {get_file_name(instance.upload_file.name)} ➡️ {file.name} |"
-                        instance.is_approved = True if (not instance.is_approved and request.user.is_superuser) else False
+                        if instance.upload_file:
+                            file_path = instance.upload_file.path
+                            if os.path.isfile(file_path):
+                                os.remove(file_path)
                         instance.upload_file = file
                 else:
                     if file and file_availability:
                         log_details += f"Upload File : {get_file_name(instance.upload_file.name)} ➡️ {file.name} |"
-                        instance.is_approved = True if (not instance.is_approved and request.user.is_superuser) else False
+                        if instance.upload_file:
+                            file_path = instance.upload_file.path
+                            if os.path.isfile(file_path):
+                                os.remove(file_path)
                         instance.upload_file = file
                     
                     if instance.upload_file and not file_availability:
                         log_details += f"Upload File : {get_file_name(instance.upload_file.name)} ➡️ None |"
-                        instance.is_approved = True if (not instance.is_approved and request.user.is_superuser) else False
+                        file_path = instance.upload_file.path
+                        if os.path.isfile(file_path):
+                            os.remove(file_path)
                         instance.upload_file = None
                 instance.save()
                 
@@ -1167,7 +1175,7 @@ class DownloadStandardFileApiView(APIView):
                 return Response(response, status=400)
             if instance.upload_file:
                 file_path = instance.upload_file.path
-                if os.path.exists(file_path):
+                if os.path.isfile(file_path):
                     response = FileResponse(open(file_path, "rb"))
                     StandardLog.objects.create(
                         user = request.user,

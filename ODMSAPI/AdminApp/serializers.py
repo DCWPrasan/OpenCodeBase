@@ -30,7 +30,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "full_name", "profile_photo", "email", "personnel_number", "is_download_drawing", 
                   "is_disable_dwg_file", "is_view_manual", "is_view_standard", "is_view_layout", 
-                  "phone_number", "last_login", "role", "designation", "address",
+                  "phone_number", "last_login", "role", "designation",
                   "is_view_technical_calculation", "is_design_user"]
         read_only_fields = fields
 

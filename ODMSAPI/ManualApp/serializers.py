@@ -7,7 +7,7 @@ from . models import Manual, ManualLog
 class ManualSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         ret = super().to_representation(obj)
-        if obj.manual_type in ["MANUALS","TENDER DOCUMENT","TECHNICAL CALCULATION","TECHNICAL SPECIFICATION", "TECHNICAL REPORT"]:
+        if obj.manual_type in ["MANUALS","TENDER DOCUMENT","TECHNICAL CALCULATION","TECHNICAL SPECIFICATION", "TECHNICAL REPORT", "PROJECT SUBMITTED DRAWINGS"]:
             ret['department'] = {
                 "id": obj.department.id,
                 "name": obj.department.name,
@@ -19,7 +19,7 @@ class ManualSerializer(serializers.ModelSerializer):
                 ret['letter_no'] = obj.letter_no
                 ret['registration_date'] = obj.registration_date
             
-            if obj.manual_type in ["MANUALS","TENDER DOCUMENT"]:
+            if obj.manual_type in ["MANUALS","TENDER DOCUMENT", "PROJECT SUBMITTED DRAWINGS"]:
                 ret['unit'] = {
                     "id": obj.unit.id,
                     "name": obj.unit.name,
@@ -39,6 +39,11 @@ class ManualSerializer(serializers.ModelSerializer):
             if obj.manual_type == "REFERENCE BOOK":
                 ret['editor'] = obj.editor
                 ret['author'] = obj.author
+        
+        if obj.manual_type == "PROJECT SUBMITTED DRAWINGS":
+            ret['title'] = obj.title
+
+        ret['is_file'] =  True if obj.upload_file else False
         return ret        
     class Meta:
         model = Manual
@@ -86,14 +91,10 @@ class ManualArchiveSerializer(serializers.ModelSerializer):
         fields = ['id','manual_type', 'manual_no','description', 'is_approved', 'archive_reason']
 
 
-
-
-
-
 class ManualDetailSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         ret = super().to_representation(obj)
-        if obj.manual_type in ["MANUALS","TENDER DOCUMENT","TECHNICAL CALCULATION","TECHNICAL SPECIFICATION", "TECHNICAL REPORT"]:
+        if obj.manual_type in ["MANUALS","TENDER DOCUMENT","TECHNICAL CALCULATION","TECHNICAL SPECIFICATION", "TECHNICAL REPORT", "PROJECT SUBMITTED DRAWINGS"]:
             ret['department'] = {
                 "id": obj.department.id,
                 "name": obj.department.name,
@@ -105,7 +106,7 @@ class ManualDetailSerializer(serializers.ModelSerializer):
                 ret['letter_no'] = obj.letter_no
                 ret['registration_date'] = obj.registration_date
             
-            if obj.manual_type in ["MANUALS","TENDER DOCUMENT"]:
+            if obj.manual_type in ["MANUALS","TENDER DOCUMENT", "PROJECT SUBMITTED DRAWINGS"]:
                 ret['unit'] = {
                     "id": obj.unit.id,
                     "name": obj.unit.name,
@@ -125,6 +126,14 @@ class ManualDetailSerializer(serializers.ModelSerializer):
             if obj.manual_type == "REFERENCE BOOK":
                 ret['editor'] = obj.editor
                 ret['author'] = obj.author
+
+        if obj.manual_type == "PROJECT SUBMITTED DRAWINGS":
+            ret['title'] = obj.title
+            ret['file_type'] = obj.file_type
+            ret['dwg_zip_file']= {
+            "name":get_file_name(obj.dwg_zip_file.name),
+            "size":obj.dwg_zip_file.size
+            } if obj.dwg_zip_file else None
         
         ret['file']= {
             "name":get_file_name(obj.upload_file.name),

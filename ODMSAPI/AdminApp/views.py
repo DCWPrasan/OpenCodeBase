@@ -419,7 +419,7 @@ class UserApiView(APIView):
                 )
 
             instance = (
-                User.objects.select_related()
+                User.objects.select_related('department')
                 .filter(filter_criteria)
                 .order_by("-created_at")
             )
@@ -452,7 +452,6 @@ class UserApiView(APIView):
             role = data.get("role", "User")
             department_id = data.get("department_id", None)
             designation = data.get("designation", None)
-            address = data.get("address", None)
             is_download_drawing = data.get("is_download_drawing", "NO") == "YES"
             is_view_layout = data.get("is_view_layout", "NO") == "YES"
             is_view_standard = data.get("is_view_standard", "NO") == "YES"
@@ -491,7 +490,6 @@ class UserApiView(APIView):
                     role,
                     department_id,
                     designation,
-                    address,
                 ]
             ):
                 response = {
@@ -559,7 +557,6 @@ class UserApiView(APIView):
                     role=role,
                     department=departments.first(),
                     designation=designation,
-                    address=address,
                     is_download_drawing=is_download_drawing,
                     is_view_layout=is_view_layout,
                     is_view_standard = is_view_standard,
@@ -596,7 +593,6 @@ class UserApiView(APIView):
             role = data.get("role", "User")
             department_id = data.get("department_id", None)
             designation = data.get("designation", None)
-            address = data.get("address", None)
             is_download_drawing = data.get("is_download_drawing", "NO") == "YES"
             is_view_layout = data.get("is_view_layout", "NO") == "YES"
             is_view_standard = data.get("is_view_standard", "NO") == "YES"
@@ -636,7 +632,6 @@ class UserApiView(APIView):
                     role,
                     department_id,
                     designation,
-                    address,
                 ]
             ):
                 response = {
@@ -724,7 +719,6 @@ class UserApiView(APIView):
                 instance.is_view_standard = is_view_standard
                 instance.is_disable_dwg_file = is_disable_dwg_file
                 instance.designation = designation
-                instance.address = address
                 instance.is_view_technical_calculation = is_view_technical_calculation
                 instance.is_design_user = is_design_user
                 instance.save()

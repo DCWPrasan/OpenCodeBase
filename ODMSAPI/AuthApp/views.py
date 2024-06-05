@@ -11,6 +11,7 @@ from AuthApp.models import User, LogInOutLog
 from AuthApp.customAuth import JWTEncrytpToken
 from django.core.files.uploadedfile import UploadedFile, InMemoryUploadedFile
 import os
+import re
 
 class Login(APIView):
     permission_classes = (AllowAny,)
@@ -281,3 +282,54 @@ class UserProfileView(APIView):
                 "message": str(e),
             }
             return Response(response, status=400)
+        
+    def patch(self, request):
+        try:
+            data = request.data
+            email = data.get("email", None)
+            phone_number = data.get("phone_number", None)
+            designation = data.get("designation", None)
+            if not ([email, phone_number, designation]):
+                response = {"success": False, "message": "All the mandatory fields are required"}
+                return Response(response, status=400)
+            user = request.user
+            email_pattern = re.compile(
+                r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b"
+            )
+            if not email_pattern.match(email):
+                response = {
+                    "success": False,
+                    "message": "Invalid email format.",
+                }
+                return Response(response, status=400)
+
+            if not isinstance(phone_number, int) and len(str(phone_number)) != 10:
+                response = {
+                    "success": False,
+                    "message": "Invalid phone number, require 10 digits.",
+                }
+                return Response(response, status=400)
+            if User.objects.filter(email=email).exclude(email=user.email).exists():
+                response = {"success": False, "message": "Email already exists."}
+                return Response(response, status=400)
+            if User.objects.filter(phone_number=phone_number).exclude(phone_number=user.phone_number).exists():
+                response = {"success": False, "message": "Phone number already exists."}
+                return Response(response, status=400)
+            user.email = email
+            user.phone_number = phone_number
+            user.designation = designation
+            user.save()
+            resp_data = UserProfileSerializer(user).data
+            response = {
+                "success": True,
+                "message": "User Password update successfully.",
+                "data": resp_data,
+            }
+            return Response(response, status=200)
+        except Exception as e:
+            response = {
+                "success": False,
+                "message": str(e),
+            }
+            return Response(response, status=400)
+

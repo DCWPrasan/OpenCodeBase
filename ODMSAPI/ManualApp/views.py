@@ -180,6 +180,10 @@ class ManualAPIView(APIView):
             capacity = data.get("capacity", None) or None
             year = data.get("year", None) or None
             file = data.get("file", None) or None
+            file_type = data.get("file_type", None) or None
+            title = data.get("title", None) or None
+            dwg_zip_file = None
+
             
             if not all([manual_no, manual_type]):
                 response = {
@@ -188,7 +192,7 @@ class ManualAPIView(APIView):
                 }
                 return Response(response, status=400)
             
-            if manual_type in ["MANUALS", "TENDER DOCUMENT","TECHNICAL CALCULATION", "TECHNICAL SPECIFICATION", "TECHNICAL REPORT"]:
+            if manual_type in ["MANUALS", "TENDER DOCUMENT","TECHNICAL CALCULATION", "TECHNICAL SPECIFICATION", "TECHNICAL REPORT", "PROJECT SUBMITTED DRAWINGS"]:
                 if department:
                     try:
                         department = Department.objects.get(department_id=department)
@@ -201,7 +205,7 @@ class ManualAPIView(APIView):
                 else:
                     department = None
                     
-            if manual_type in ["MANUALS", "TENDER DOCUMENT"]:
+            if manual_type in ["MANUALS", "TENDER DOCUMENT", "PROJECT SUBMITTED DRAWINGS"]:
                 if manual_type == "TENDER DOCUMENT":
                     package_no = None
                     letter_no = None
@@ -213,6 +217,10 @@ class ManualAPIView(APIView):
                 author = None
                 capacity = None
                 year = None
+                if manual_type != "PROJECT SUBMITTED DRAWINGS":
+                    title = None
+                    file_type = None
+                
                 if unit:
                     try:
                         unit = Unit.objects.get(unit_id=unit)
@@ -235,6 +243,8 @@ class ManualAPIView(APIView):
                 remarks = None
                 capacity = None
                 year = None
+                title = None
+                file_type = None
                 if manual_type == "CATALOUGE":
                     editor = None
                     author = None
@@ -249,6 +259,8 @@ class ManualAPIView(APIView):
                 editor = None
                 author = None
                 source = None
+                title = None
+                file_type = None
                 
             elif manual_type == "PROJECT REPORT":
                 department = None
@@ -259,6 +271,21 @@ class ManualAPIView(APIView):
                 editor = None
                 author = None
                 source = None
+                title = None
+                file_type = None
+            elif manual_type == "PROJECT SUBMITTED DRAWINGS":
+                if file_type not in ["PDF", "DWG"]:
+                    raise ValueError("Invalid File Type")
+                package_no = None
+                supplier = None
+                letter_no = None
+                registration_date = None
+                editor = None
+                author = None
+                source = None
+                remarks = None
+                capacity = None
+                year = None
             else:
                 response = {
                     "success": False,
@@ -275,11 +302,11 @@ class ManualAPIView(APIView):
                     }
                     return Response(response, status=400)
                 file_ext = file.name.split(".")[-1].upper()
-                if file_ext != "PDF":
-                    response = {
-                        "success": False,
-                        "message": "Upload pdf file"
-                    }
+                if file_type == "DWG" and file_ext in ["DWG", "ZIP", "RAR"]:
+                    dwg_zip_file = file
+                    file = None
+                elif file_ext != "PDF":
+                    response = {"success": False,"message": "Upload pdf file"}
                     return Response(response, status=400)
             else:
                 file = None
@@ -301,6 +328,9 @@ class ManualAPIView(APIView):
                     capacity = capacity,
                     year = year,
                     upload_file = file,
+                    dwg_zip_file = dwg_zip_file,
+                    title = title,
+                    file_type = file_type,
                     is_approved = request.user.is_superuser
                 )
                 instance.save()
@@ -347,7 +377,8 @@ class ManualAPIView(APIView):
             capacity = data.get("capacity", None) or None
             year = data.get("year", None) or None
             file = data.get("file", None) or None            
-            
+            title = data.get("title", None) or None            
+            dwg_zip_file = None
             if not id:
                 response = {
                     "success": False,
@@ -363,7 +394,7 @@ class ManualAPIView(APIView):
                 }
                 return Response(response, status=400)
             
-            if instance.manual_type in ["MANUALS", "TENDER DOCUMENT","TECHNICAL CALCULATION", "TECHNICAL SPECIFICATION", "TECHNICAL REPORT"]:
+            if instance.manual_type in ["MANUALS", "TENDER DOCUMENT","TECHNICAL CALCULATION", "TECHNICAL SPECIFICATION", "TECHNICAL REPORT", "PROJECT SUBMITTED DRAWINGS"]:
                 if department:
                     try:
                         department = Department.objects.get(department_id=department)
@@ -376,7 +407,7 @@ class ManualAPIView(APIView):
                 else:
                     department = None
                     
-            if instance.manual_type in ["MANUALS", "TENDER DOCUMENT"]:
+            if instance.manual_type in ["MANUALS", "TENDER DOCUMENT", "PROJECT SUBMITTED DRAWINGS"]:
                 if instance.manual_type == "TENDER DOCUMENT":
                     package_no = None
                     letter_no = None
@@ -388,6 +419,8 @@ class ManualAPIView(APIView):
                 author = None
                 capacity = None
                 year = None
+                if instance.manual_type != "PROJECT SUBMITTED DRAWINGS":
+                    title = None
                 if unit:
                     try:
                         unit = Unit.objects.get(unit_id=unit)
@@ -410,6 +443,7 @@ class ManualAPIView(APIView):
                 remarks = None
                 capacity = None
                 year = None
+                title = None
                 if instance.manual_type == "CATALOUGE":
                     editor = None
                     author = None
@@ -424,16 +458,32 @@ class ManualAPIView(APIView):
                 editor = None
                 author = None
                 source = None
+                title = None
                 
             elif instance.manual_type == "PROJECT REPORT":
-                department = None
-                unit = None
                 package_no = None
+                letter_no = None
+                registration_date = None
+                remarks = None
+                supplier = None
+                editor = None
+                source = None
+                author = None
+                capacity = None
+                year = None
+                title = None
+
+            elif instance.manual_type == "PROJECT SUBMITTED DRAWINGS":
+                package_no = None
+                supplier = None
                 letter_no = None
                 registration_date = None
                 editor = None
                 author = None
                 source = None
+                remarks = None
+                capacity = None
+                year = None
             else:
                 response = {
                     "success": False,
@@ -450,11 +500,11 @@ class ManualAPIView(APIView):
                     }
                     return Response(response, status=400)
                 file_ext = file.name.split(".")[-1].upper()
-                if file_ext != "PDF":
-                    response = {
-                        "success": False,
-                        "message": "Upload pdf file"
-                    }
+                if instance.file_type == "DWG" and file_ext in ["DWG", "ZIP", "RAR"]:
+                    dwg_zip_file = file
+                    file = None
+                elif file_ext != "PDF":
+                    response = {"success": False, "message": "Upload pdf file"}
                     return Response(response, status=400)
             else:
                 file = None
@@ -511,11 +561,26 @@ class ManualAPIView(APIView):
                 if instance.year != year:
                     log_details += f'Year : {instance.year} ➡️ {year} |'
                     instance.year = year
+                
+                if instance.title != title:
+                    log_details += f'Title : {instance.title} ➡️ {title} |'
+                    instance.year = year
 
                 if file:
                     log_details += f"Upload file : {get_file_name(instance.upload_file.name)} ➡️ {file.name} |"
+                    if instance.upload_file:
+                        file_path = instance.upload_file.path
+                        if os.path.isfile(file_path):
+                            os.remove(file_path)
                     instance.upload_file = file
-                    instance.is_approved = True if (not instance.is_approved and request.user.is_superuser) else False
+
+                if dwg_zip_file:
+                    log_details += f"Upload DWG file : {get_file_name(instance.dwg_zip_file.name)} ➡️ {dwg_zip_file.name} |"
+                    if instance.dwg_zip_file:
+                        dwg_file_path = instance.dwg_zip_file.path
+                        if os.path.isfile(dwg_file_path):
+                            os.remove(dwg_file_path)
+                    instance.dwg_zip_file = dwg_zip_file
                     
                 instance.save()
                 if log_details:
@@ -561,8 +626,11 @@ class DownloadManualFileApiView(APIView):
                     "message": "Document doesn't exist."
                 }
                 return Response(response, status=400)
-            if instance.upload_file:
-                file_path = instance.upload_file.path
+            if instance.upload_file or instance.dwg_zip_file:
+                if instance.upload_file:
+                    file_path = instance.upload_file.path
+                else:
+                    file_path = instance.dwg_zip_file.path  
                 if os.path.exists(file_path):
                     response = FileResponse(open(file_path, "rb"))
                     ManualLog.objects.create(
@@ -577,8 +645,7 @@ class DownloadManualFileApiView(APIView):
                     return Response({"success": False, "message": "File not found."}, status=400)
             else:
                 response = {
-                    "success": False,
-                    "message": "Document file doesn't exist."
+                    "success": False, "message": "Document file doesn't exist."
                 }
                 return Response(response, status=400)
         except Exception as e:

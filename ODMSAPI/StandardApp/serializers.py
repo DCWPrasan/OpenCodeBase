@@ -31,6 +31,7 @@ class IPSSTitleSerializer(serializers.ModelSerializer):
 class StandardSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         ret = super().to_representation(obj)
+        ret['is_file'] = True if obj.upload_file else False
         if obj.standard_type == "RSN":
             ret['volume'] = {
                 "id": obj.rsn_volume.id,

@@ -14,5 +14,5 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "full_name", "profile_photo", "email", "personnel_number", "phone_number", "is_view_manual", "is_view_standard", "is_view_layout", 
-                  "is_download_drawing", "is_disable_dwg_file", "last_login", "role", "designation", "address", "is_view_technical_calculation", "is_design_user"]
+                  "is_download_drawing", "is_disable_dwg_file", "last_login", "role", "designation", "is_view_technical_calculation", "is_design_user"]
         read_only_fields = fields
