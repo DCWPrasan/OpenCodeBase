@@ -1248,6 +1248,37 @@ class DepartmentApiView(APIView):
             }
             return Response(response, status=400)
 
+    @allowed_admin_user
+    def delete(self, request):
+        try:
+            if id := request.GET.get("id"):
+                try:
+                    department = Department.objects.get(id = id)
+                except:
+                    raise ValueError("Department Not found")
+            else:
+                raise ValueError("required Department ID")
+            
+            if replace_id := request.GET.get("replace_id"):
+                try:
+                    re_department = Department.objects.get(department_id = replace_id)
+                except:
+                    raise ValueError("Replaced Department Not found")
+            else:
+                raise ValueError("required replace Department ID")
+            if department == re_department:
+                raise ValueError("Choose different replace Department ID")
+            Drawing.objects.filter(department= department).update(department = re_department)
+            Manual.objects.filter(department= department).update(department = re_department)
+            SIR.objects.filter(department= department).update(department = re_department)
+            StabilityCertification.objects.filter(department= department).update(department = re_department)
+            Compliance.objects.filter(department = department).update(department = re_department)
+            department.delete()
+            return Response({"message": "Department Deleted Successfully", "results": id}, status=200)
+        except Exception as e:
+            Syserror(e)
+            response = {"success": False, "message": str(e)}
+            return Response(response, status=400)
 
 class UnitApiView(APIView):
     pagination_class = CustomPagination
@@ -1698,8 +1729,11 @@ class SearchDepartmentApiView(APIView):
                 filter_criteria &= Q(
                     Q(name__icontains=query) | Q(department_id__icontains=query)
                 )
-
-            instance = Department.objects.filter(filter_criteria).order_by("name")
+            exclude_id = request.GET.get("exclude_id", None)
+            if exclude_id:    
+                instance = Department.objects.filter(filter_criteria).exclude(id = exclude_id).order_by("name")
+            else:
+                instance = Department.objects.filter(filter_criteria).order_by("name")
             serializer = self.serializer_class(instance, many=True)
             response = {
                 "success": True,
@@ -1723,8 +1757,11 @@ class SearchVolumeApiView(APIView):
                 filter_criteria &= Q(
                     Q(name__icontains=query) | Q(sub_volume_no__icontains=query)
                 )
-
-            instance = Subvolume.objects.filter(filter_criteria).order_by("sub_volume_no", "name")
+            exclude_id = request.GET.get("exclude_id")
+            if exclude_id:
+                instance = Subvolume.objects.filter(filter_criteria).exclude(id = exclude_id).order_by("sub_volume_no", "name")
+            else:
+                instance = Subvolume.objects.filter(filter_criteria).order_by("sub_volume_no", "name")
             serializer = self.serializer_class(instance, many=True)
             response = {
                 "success": True,
