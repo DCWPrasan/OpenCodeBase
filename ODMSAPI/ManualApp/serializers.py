@@ -14,11 +14,6 @@ class ManualSerializer(serializers.ModelSerializer):
                 "department_id": obj.department.department_id,
             }if obj.department else None
             
-            if obj.manual_type == "MANUALS":
-                ret['package_no'] = obj.package_no
-                ret['letter_no'] = obj.letter_no
-                ret['registration_date'] = obj.registration_date
-            
             if obj.manual_type in ["MANUALS","TENDER DOCUMENT", "PROJECT SUBMITTED DRAWINGS"]:
                 ret['unit'] = {
                     "id": obj.unit.id,
@@ -42,6 +37,8 @@ class ManualSerializer(serializers.ModelSerializer):
         
         if obj.manual_type == "PROJECT SUBMITTED DRAWINGS":
             ret['title'] = obj.title
+            ret['file_type'] = obj.file_type
+            ret['file_name'] = get_file_name(obj.upload_file.name) if obj.upload_file else None
 
         ret['is_file'] =  True if obj.upload_file else False
         return ret        
@@ -130,10 +127,6 @@ class ManualDetailSerializer(serializers.ModelSerializer):
         if obj.manual_type == "PROJECT SUBMITTED DRAWINGS":
             ret['title'] = obj.title
             ret['file_type'] = obj.file_type
-            ret['dwg_zip_file']= {
-            "name":get_file_name(obj.dwg_zip_file.name),
-            "size":obj.dwg_zip_file.size
-            } if obj.dwg_zip_file else None
         
         ret['file']= {
             "name":get_file_name(obj.upload_file.name),

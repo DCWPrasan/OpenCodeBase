@@ -182,8 +182,6 @@ class ManualAPIView(APIView):
             file = data.get("file", None) or None
             file_type = data.get("file_type", None) or None
             title = data.get("title", None) or None
-            dwg_zip_file = None
-
             
             if not all([manual_no, manual_type]):
                 response = {
@@ -302,9 +300,8 @@ class ManualAPIView(APIView):
                     }
                     return Response(response, status=400)
                 file_ext = file.name.split(".")[-1].upper()
-                if file_type == "DWG" and file_ext in ["DWG", "ZIP", "RAR"]:
-                    dwg_zip_file = file
-                    file = None
+                if file_type in ["PDF", "DWG"] and file_ext in ["ZIP", "RAR"]:
+                    file = file
                 elif file_ext != "PDF":
                     response = {"success": False,"message": "Upload pdf file"}
                     return Response(response, status=400)
@@ -328,7 +325,6 @@ class ManualAPIView(APIView):
                     capacity = capacity,
                     year = year,
                     upload_file = file,
-                    dwg_zip_file = dwg_zip_file,
                     title = title,
                     file_type = file_type,
                     is_approved = request.user.is_superuser
@@ -378,7 +374,6 @@ class ManualAPIView(APIView):
             year = data.get("year", None) or None
             file = data.get("file", None) or None            
             title = data.get("title", None) or None            
-            dwg_zip_file = None
             if not id:
                 response = {
                     "success": False,
@@ -500,9 +495,8 @@ class ManualAPIView(APIView):
                     }
                     return Response(response, status=400)
                 file_ext = file.name.split(".")[-1].upper()
-                if instance.file_type == "DWG" and file_ext in ["DWG", "ZIP", "RAR"]:
-                    dwg_zip_file = file
-                    file = None
+                if instance.file_type in ["PDF", "DWG"] and file_ext in ["ZIP", "RAR"]:
+                    file = file
                 elif file_ext != "PDF":
                     response = {"success": False, "message": "Upload pdf file"}
                     return Response(response, status=400)
@@ -573,15 +567,7 @@ class ManualAPIView(APIView):
                         if os.path.isfile(file_path):
                             os.remove(file_path)
                     instance.upload_file = file
-
-                if dwg_zip_file:
-                    log_details += f"Upload DWG file : {get_file_name(instance.dwg_zip_file.name)} ➡️ {dwg_zip_file.name} |"
-                    if instance.dwg_zip_file:
-                        dwg_file_path = instance.dwg_zip_file.path
-                        if os.path.isfile(dwg_file_path):
-                            os.remove(dwg_file_path)
-                    instance.dwg_zip_file = dwg_zip_file
-                    
+    
                 instance.save()
                 if log_details:
                     ManualLog.objects.create(   # create log for update

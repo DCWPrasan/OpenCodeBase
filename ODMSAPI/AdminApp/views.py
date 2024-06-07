@@ -41,7 +41,7 @@ class DashboardApiView(APIView):
         try:
             # retrive list of user object according to filter_criteria
             today = datetime.now().date()
-            drawing_log = DrawingLog.objects.filter(user=request.user, action_time__date=today).order_by('-action_time')
+            drawing_log = DrawingLog.objects.filter(user__is_superuser = False, action_time__date=today).order_by('-action_time')
             
             drawing_log_count = drawing_log.values('status').annotate(count=Count('id'))
             data = {
@@ -191,7 +191,7 @@ class DashboardDrawingLogGraphView(APIView):
 
             date_list = [to_date + timedelta(days=x) for x in range((from_date - to_date).days + 1)]
 
-            log_items = DrawingLog.objects.filter(action_time__date__in=date_list, user=request.user, status__in = ["View Drawing", "Download Drawing"]).values("action_time__date").annotate(
+            log_items = DrawingLog.objects.filter(action_time__date__in=date_list, user__is_superuser = False, status__in = ["View Drawing", "Download Drawing"]).values("action_time__date").annotate(
                 log_count=Coalesce(Count("id"), 0)
             )
 
@@ -229,7 +229,7 @@ class DashboardLogInGraphView(APIView):
 
             date_list = [to_date + timedelta(days=x) for x in range((from_date - to_date).days + 1)]
 
-            filter_criteria = Q(action_time__date__in=date_list, user=request.user, message = "Login")
+            filter_criteria = Q(action_time__date__in=date_list, user__is_superuser = False, message = "Login")
             log_items = LogInOutLog.objects.filter(filter_criteria).values("action_time__date").annotate(view=Coalesce(Count("id"), 0))
 
             log_dict = {item["action_time__date"]: item for item in log_items}
@@ -269,7 +269,7 @@ class DashboardStandardLogGraphView(APIView):
 
             date_list = [to_date + timedelta(days=x) for x in range((from_date - to_date).days + 1)]
 
-            log_items = StandardLog.objects.filter(action_time__date__in=date_list, user=request.user, status = "View Standard").values("action_time__date").annotate(view=Coalesce(Count("id"), 0))
+            log_items = StandardLog.objects.filter(action_time__date__in=date_list, user__is_superuser = False, status = "View Standard").values("action_time__date").annotate(view=Coalesce(Count("id"), 0))
 
             log_dict = {item["action_time__date"]: item for item in log_items}
 
@@ -308,7 +308,7 @@ class DashboardManualLogGraphView(APIView):
                 to_date = from_date - timedelta(days=30)
 
             date_list = [to_date + timedelta(days=x) for x in range((from_date - to_date).days + 1)]
-            log_items = ManualLog.objects.filter(action_time__date__in=date_list, user=request.user, status = "View Document").values("action_time__date").annotate(view=Coalesce(Count("id"), 0))
+            log_items = ManualLog.objects.filter(action_time__date__in=date_list, user__is_superuser = False, status = "View Document").values("action_time__date").annotate(view=Coalesce(Count("id"), 0))
 
             log_dict = {item["action_time__date"]: item for item in log_items}
 
@@ -349,13 +349,13 @@ class DashboardSILogGraphView(APIView):
             date_list = [to_date + timedelta(days=x) for x in range((from_date - to_date).days + 1)]
 
             if si_type == "SIR":
-                filter_criteria = Q(action_time__date__in=date_list, user=request.user, status="View SIR")
+                filter_criteria = Q(action_time__date__in=date_list, user__is_superuser = False, status="View SIR")
                 log_items = SIRLog.objects.filter(filter_criteria).values("action_time__date").annotate(view=Coalesce(Count("id"), 0))
             elif si_type == "STABILITY CERTIFICATE":
-                filter_criteria = Q(action_time__date__in=date_list, user=request.user, status="View Stability Certificate")
+                filter_criteria = Q(action_time__date__in=date_list, user__is_superuser = False, status="View Stability Certificate")
                 log_items = StabilityCertificationLog.objects.filter(filter_criteria).values("action_time__date").annotate(view=Coalesce(Count("id"), 0))
             else:
-                filter_criteria = Q(action_time__date__in=date_list, user=request.user, status="View Compliance")
+                filter_criteria = Q(action_time__date__in=date_list, user__is_superuser = False, status="View Compliance")
                 log_items = ComplianceLog.objects.filter(filter_criteria).values("action_time__date").annotate(view=Coalesce(Count("id"), 0))
 
             log_dict = {item["action_time__date"]: item for item in log_items}
@@ -1269,6 +1269,7 @@ class DepartmentApiView(APIView):
             if department == re_department:
                 raise ValueError("Choose different replace Department ID")
             Drawing.objects.filter(department= department).update(department = re_department)
+            User.objects.filter(department = department).update(department = re_department)
             Manual.objects.filter(department= department).update(department = re_department)
             SIR.objects.filter(department= department).update(department = re_department)
             StabilityCertification.objects.filter(department= department).update(department = re_department)
@@ -1401,6 +1402,38 @@ class UnitApiView(APIView):
             }
             return Response(response, status=400)
 
+    @allowed_admin_user
+    def delete(self, request):
+        try:
+            if id := request.GET.get("id"):
+                try:
+                    unit = Unit.objects.get(id = id)
+                except:
+                    raise ValueError("Unit Not found")
+            else:
+                raise ValueError("required Unit ID")
+            
+            if replace_id := request.GET.get("replace_id"):
+                try:
+                    re_unit = Unit.objects.get(unit_id = replace_id)
+                except:
+                    raise ValueError("Replaced Unit Not found")
+            else:
+                raise ValueError("required replace Unit ID")
+            if unit == re_unit:
+                raise ValueError("Choose different replace Unit ID")
+            Drawing.objects.filter(unit= unit).update(unit = re_unit)
+            Manual.objects.filter(unit= unit).update(unit = re_unit)
+            SIR.objects.filter(unit= unit).update(unit = re_unit)
+            StabilityCertification.objects.filter(unit= unit).update(unit = re_unit)
+            Compliance.objects.filter(unit = unit).update(unit = re_unit)
+            unit.delete()
+            return Response({"message": "Unit Deleted Successfully", "results": id}, status=200)
+        except Exception as e:
+            Syserror(e)
+            response = {"success": False, "message": str(e)}
+            return Response(response, status=400)
+
 
 class RSVolumeApiView(APIView):
     pagination_class = CustomPagination
@@ -1503,22 +1536,26 @@ class RSVolumeApiView(APIView):
     @allowed_admin_user
     def delete(self, request):
         try:
-            if id := request.GET.get("id", None):
+            if id := request.GET.get("id"):
                 try:
-                    Volume.objects.get(id = id).delete()
+                    volume = Volume.objects.get(id = id)
                 except:
-                    response = {
-                        "success": False,
-                        "message": "Volume not found",
-                    }
-                    return Response(response, status=400)
+                    raise ValueError("Volume Not found")
             else:
-                response = {
-                        "success": False,
-                        "message": "Required Volume ID",
-                    }
-                return Response(response, status=400)
-            return Response({"success": False, "message": "Volume deleted successfully", "results": id}, status=200)
+                raise ValueError("required Volume ID")
+            
+            if replace_id := request.GET.get("replace_id"):
+                try:
+                    re_volume = Volume.objects.get(id = replace_id)
+                except:
+                    raise ValueError("Replaced Volume Not found")
+            else:
+                raise ValueError("required replace Volume ID")
+            if volume == re_volume:
+                raise ValueError("Choose different replace Volume ID")
+            Subvolume.objects.filter(volume= volume).update(volume = re_volume)
+            volume.delete()
+            return Response({"message": "Volume Deleted Successfully", "results": id}, status=200)
         except Exception as e:
             Syserror(e)
             response = {"success": False, "message": str(e)}
@@ -1671,22 +1708,26 @@ class RSSubVolumeApiView(APIView):
     @allowed_admin_user
     def delete(self, request):
         try:
-            if id := request.GET.get("id", None):
+            if id := request.GET.get("id"):
                 try:
-                    Subvolume.objects.get(id = id).delete()
+                    sub_volume = Subvolume.objects.get(id = id)
                 except:
-                    response = {
-                        "success": False,
-                        "message": "Sub Volume not found",
-                    }
-                    return Response(response, status=400)
+                    raise ValueError("Sub-Volume Not found")
             else:
-                response = {
-                        "success": False,
-                        "message": "Required Volume ID",
-                    }
-                return Response(response, status=400)
-            return Response({"success": False, "message": "SUb Volume deleted successfully", "results": id}, status=200)
+                raise ValueError("required Sub-Volume ID")
+            
+            if replace_id := request.GET.get("replace_id"):
+                try:
+                    re_sub_volume = Subvolume.objects.get(id = replace_id)
+                except:
+                    raise ValueError("Replaced Sub-Volume Not found")
+            else:
+                raise ValueError("required replace Sub-volume ID")
+            if sub_volume == re_sub_volume:
+                raise ValueError("Choose different replace Sub-volume ID")
+            Drawing.objects.filter(sub_volume= sub_volume).update(sub_volume = re_sub_volume)
+            sub_volume.delete()
+            return Response({"message": "Sub-Volume Deleted Successfully", "results": id}, status=200)
         except Exception as e:
             Syserror(e)
             response = {"success": False, "message": str(e)}
@@ -1704,8 +1745,11 @@ class SearchUnitApiView(APIView):
                 filter_criteria &= Q(
                     Q(name__icontains=query) | Q(unit_id__icontains=query)
                 )
-
-            instance = Unit.objects.filter(filter_criteria).order_by("name")
+            exclude_id = request.GET.get("exclude_id", None)
+            if exclude_id:
+                instance = Unit.objects.filter(filter_criteria).exclude(id = exclude_id).order_by("name")
+            else:
+                instance = Unit.objects.filter(filter_criteria).order_by("name")
             serializer = self.serializer_class(instance, many=True)
             response = {
                 "success": True,
@@ -1747,7 +1791,7 @@ class SearchDepartmentApiView(APIView):
             return Response(response, status=400)
 
 
-class SearchVolumeApiView(APIView):
+class SearchSubVolumeApiView(APIView):
     serializer_class = SearchVolumeSerializer
 
     def get(self, request):
@@ -1785,8 +1829,11 @@ class SearchRSVolumeApiView(APIView):
                 filter_criteria &= Q(
                     Q(name__icontains=query) | Q(volume_id__icontains=query)
                 )
-
-            instance = Volume.objects.filter(filter_criteria).order_by("name")
+            exclude_id = request.GET.get("exclude_id")
+            if exclude_id:
+                instance = Volume.objects.filter(filter_criteria).exclude(id= exclude_id).order_by("name")
+            else:
+                instance = Volume.objects.filter(filter_criteria).order_by("name")
             serializer = self.serializer_class(instance, many=True)
             response = {
                 "success": True,

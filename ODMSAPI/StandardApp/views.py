@@ -193,6 +193,34 @@ class RSNVolumeAPIView(APIView):
             }
             return Response(response, status=400)
           
+    @allowed_admin_user
+    def delete(self, request):
+        try:
+            if id := request.GET.get("id"):
+                try:
+                    volume = RSNVolume.objects.get(id = id)
+                except:
+                    raise ValueError("RSN Volume Not found")
+            else:
+                raise ValueError("required RSN Volume ID")
+            
+            if replace_id := request.GET.get("replace_id"):
+                try:
+                    re_volume = RSNVolume.objects.get(id = replace_id)
+                except:
+                    raise ValueError("Replaced RSN Volume Not found")
+            else:
+                raise ValueError("required replace RSN Volume ID")
+            if volume == re_volume:
+                raise ValueError("Choose different replace RSN Volume ID")
+            Standard.objects.filter(rsn_volume= volume).update(rsn_volume = re_volume)
+            volume.delete()
+            return Response({"message": "RSN Volume Deleted Successfully", "results": id}, status=200)
+        except Exception as e:
+            Syserror(e)
+            response = {"success": False, "message": str(e)}
+            return Response(response, status=400)
+      
 # RSN Group APIView
 class RSNGroupAPIView(APIView):
     pagination_class = CustomPagination
@@ -423,6 +451,34 @@ class RSNGroupAPIView(APIView):
             }
             return Response(response, status=400)
 
+    @allowed_admin_user
+    def delete(self, request):
+        try:
+            if id := request.GET.get("id"):
+                try:
+                    group = RSNGroup.objects.get(id = id)
+                except:
+                    raise ValueError("RSn Group Not found")
+            else:
+                raise ValueError("required RSN Group ID")
+            
+            if replace_id := request.GET.get("replace_id"):
+                try:
+                    re_group = RSNGroup.objects.get(id = replace_id)
+                except:
+                    raise ValueError("Replaced RSN group Not found")
+            else:
+                raise ValueError("required replace RSN group ID")
+            if group == re_group:
+                raise ValueError("Choose different replace RSN group ID")
+            Standard.objects.filter(group= group).update(group = re_group)
+            group.delete()
+            return Response({"message": "RSN Group Deleted Successfully", "results": id}, status=200)
+        except Exception as e:
+            Syserror(e)
+            response = {"success": False, "message": str(e)}
+            return Response(response, status=400)
+
 # IPSS Title APIView
 class IPSSAPIView(APIView):
     pagination_class = CustomPagination
@@ -586,7 +642,34 @@ class IPSSAPIView(APIView):
                 "message": str(e)
             }
             return Response(response, status=400)
-              
+
+    @allowed_admin_user
+    def delete(self, request):
+        try:
+            if id := request.GET.get("id"):
+                try:
+                    title = IPSSTitle.objects.get(id = id)
+                except:
+                    raise ValueError("IPSS Title Not found")
+            else:
+                raise ValueError("required IPSS Title ID")
+            
+            if replace_id := request.GET.get("replace_id"):
+                try:
+                    re_title = IPSSTitle.objects.get(id = replace_id)
+                except:
+                    raise ValueError("Replaced IPSS Title Not found")
+            else:
+                raise ValueError("required replace IPSS Title ID")
+            if title == re_title:
+                raise ValueError("Choose different replace IPSS Title ID")
+            Standard.objects.filter(title= title).update(title = re_title)
+            title.delete()
+            return Response({"message": "IPSS Title Deleted Successfully", "results": id}, status=200)
+        except Exception as e:
+            Syserror(e)
+            response = {"success": False, "message": str(e)}
+            return Response(response, status=400)        
 # Standard APiView
 class StandardAPIView(APIView):
     pagination_class = CustomPagination
@@ -1209,8 +1292,11 @@ class SearchRsnGroupApiView(APIView):
                 filter_criteria &= Q(
                     Q(name_icontains=query) | Q(id_icontains=query)
                 )
-            
-            instance = RSNGroup.objects.filter(filter_criteria).order_by("name").distinct()
+            exclude_id = request.GET.get("exclude_id")
+            if exclude_id:
+                instance = RSNGroup.objects.filter(filter_criteria).exclude(id = exclude_id).order_by("name")
+            else:
+                instance = RSNGroup.objects.filter(filter_criteria).order_by("name")
             serializer = self.serializer_class(instance, many=True)
             response = {
                 "success": True,

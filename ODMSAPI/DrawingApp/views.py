@@ -1064,7 +1064,7 @@ class UploadDrawingFileApiView(APIView):
 
 
 class ApproveDrawingApiView(APIView):  # for pending drawing
-    pagination_class = CustomPagination  # Set the custom pagination class
+    #pagination_class = CustomPagination  # Set the custom pagination class
     serializer_class = DrawingPendingListSerializer
     @allowed_superadmin
     def get(self, request):
@@ -1073,11 +1073,11 @@ class ApproveDrawingApiView(APIView):  # for pending drawing
             .filter(is_archive=False, is_approved=False)
             .order_by("drawing_number_numeric")
         )
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(instance, request, view=self)
-        if page is not None:
-            serializer = self.serializer_class(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
+        # paginator = self.pagination_class()
+        # page = paginator.paginate_queryset(instance, request, view=self)
+        # if page is not None:
+        #     serializer = self.serializer_class(page, many=True)
+        #     return paginator.get_paginated_response(serializer.data)
 
         serializer = DrawingListSerializer(instance, many=True)
         return Response({
@@ -1133,9 +1133,7 @@ class ApproveDrawingApiView(APIView):  # for pending drawing
                 }
                 return Response(response, status=400)
 
-            Drawing.objects.filter(
-                id__in=drawing_id_list, is_archive=False, is_file_present=True
-            ).update(is_approved=True)
+            Drawing.objects.filter(id__in=drawing_id_list, is_archive=False).update(is_approved=True)
             response = {
                 "success": True,
                 "message": "Drawing approved successfully.",
