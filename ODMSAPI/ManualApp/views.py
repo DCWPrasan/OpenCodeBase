@@ -612,11 +612,8 @@ class DownloadManualFileApiView(APIView):
                     "message": "Document doesn't exist."
                 }
                 return Response(response, status=400)
-            if instance.upload_file or instance.dwg_zip_file:
-                if instance.upload_file:
-                    file_path = instance.upload_file.path
-                else:
-                    file_path = instance.dwg_zip_file.path  
+            if instance.upload_file:
+                file_path = instance.upload_file.path 
                 if os.path.exists(file_path):
                     response = FileResponse(open(file_path, "rb"))
                     ManualLog.objects.create(

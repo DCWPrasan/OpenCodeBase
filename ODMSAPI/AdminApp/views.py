@@ -40,24 +40,23 @@ class DashboardApiView(APIView):
     def get(self, request):
         try:
             # retrive list of user object according to filter_criteria
-            today = datetime.now().date()
-            drawing_log = DrawingLog.objects.filter(user__is_superuser = False, action_time__date=today).order_by('-action_time')
-            
-            drawing_log_count = drawing_log.values('status').annotate(count=Count('id'))
+            today = datetime.now().date()            
+            drawing_log_count = DrawingLog.objects.values('id').filter(user__is_superuser = False, action_time__date=today, status__in=['View Drawing', 'Download Drawing']).count()
+            standard_log_count = StandardLog.objects.values('id').filter(user__is_superuser = False, action_time__date=today, status = "View Standard").count()
+            document_log_count = ManualLog.objects.values('id').filter(user__is_superuser = False, action_time__date=today, status = "View Document").count()
+            sir_log_count = SIRLog.objects.values('id').filter(user__is_superuser = False, action_time__date=today, status = "View SIR").count()
+            sc_log_count = StabilityCertificationLog.objects.values('id').filter(user__is_superuser = False, action_time__date=today, status = "View Stability Certificate").count()
+            compliance_log_count = ComplianceLog.objects.values('id').filter(user__is_superuser = False, action_time__date=today, status = 'View Compliance').count()
             data = {
-                "drawing_log_count": {
-                    "add": 0,
-                    "update": 0,
-                    "view": 0,
-                    "download": 0,
+                "log_count": {
+                    "drawing": drawing_log_count,
+                    "standard": standard_log_count,
+                    "document": document_log_count,
+                    "si": sir_log_count + sc_log_count + compliance_log_count,
                 }
             }
-
-            for item in drawing_log_count:
-                data["drawing_log_count"][item['status'].split(' ')[0].lower()] = item['count']
-
             if request.user.is_superuser:
-                drawing_logs = list(drawing_log[:10])  # Convert queryset to list for slicing
+                drawing_logs = DrawingLog.objects.filter(user = request.user, action_time__date=today).order_by('-action_time')[:10]
                 data['drawing_log']  = DrawingLogListSerializer(drawing_logs, many=True).data
                 drawing_counts = Drawing.objects.aggregate(
                     pending=Count("id", filter=Q(is_approved=False, is_archive=False)),
