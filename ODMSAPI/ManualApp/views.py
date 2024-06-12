@@ -1,5 +1,4 @@
 import json
-from django.shortcuts import render
 from django.core.files.uploadedfile import UploadedFile, InMemoryUploadedFile
 # Create your views here.
 from rest_framework.views import APIView
@@ -17,10 +16,11 @@ from django.db.models import Q, Count, Value, F
 from django.db.models.functions import Concat
 from .models import Manual, ManualLog
 from rest_framework.response import Response
-from core.utility import Syserror, check_file, get_file_name
+from core.utility import Syserror, check_file, get_file_name, validateDocumentPerm
 from django.http import FileResponse
 from AuthApp.customAuth import allowed_superadmin, allowed_admin_user
 from datetime import datetime
+# from wsgiref.util import FileWrapper
 import os
 
 
@@ -31,12 +31,6 @@ class ManualAPIView(APIView):
     
     def get(self, request, id=None):
         try:
-            if request.user.role == "User" and not request.user.is_view_manual:
-                response = {
-                    "success": False,
-                    "message": "Required permission to view."
-                }
-                return Response(response, status=400)
             if id:
                 try:
                     filter_criteria = Q(id=id)
@@ -44,30 +38,35 @@ class ManualAPIView(APIView):
                         filter_criteria &= Q(is_archive=False, is_approved=True)
                         
                     instance = Manual.objects.get(filter_criteria)
-                    if instance.manual_type == "TECHNICAL CALCULATION":
-                        if request.user.role == "User" and not request.user.is_view_technical_calculation:
-                            response = {
-                                "success": False,
-                                "message": "Required permission to view."
-                            }
-                            return Response(response, status=400)
+                    if request.user.role == "User" and not validateDocumentPerm(request.user.document_permission, instance.manual_type):
+                        return Response({
+                            "success": False,
+                            "message": "Required View Permission.",
+                            "results": None,
+                        }, status=400)
+                    serializer = ManualDetailSerializer(instance)
+                    response = {
+                        "success": True,
+                        "message": "Document data retrieved successfully.",
+                        "result" : serializer.data
+                    }
+                    return Response(response, status=200)
                 except Manual.DoesNotExist:
                     response = {
                         "success": False,
                         "message": "Document doesn't exist."
                     }
                     return Response(response, status=400)
-                serializer = ManualDetailSerializer(instance)
-                response = {
-                    "success": True,
-                    "message": "Document data retrieved successfully.",
-                    "result" : serializer.data
-                }
-                return Response(response, status=200)
             else:
                 manual_type = request.GET.get("manual_type", "MANUALS")
                 if not manual_type:
                     manual_type = "MANUALS"
+                if request.user.role == "User" and not validateDocumentPerm(request.user.document_permission, manual_type):
+                    return Response({
+                        "success": False,
+                        "message": "Required View Permission.",
+                        "results": None,
+                    }, status=400)
                 filter_criteria = Q(manual_type=manual_type, is_archive=False)
                 if request.user.role == "User":
                         filter_criteria &= Q(is_approved=True)
@@ -120,13 +119,15 @@ class ManualAPIView(APIView):
                             | Q(year__icontains=query)
                             | Q(remarks__icontains=query)
                         )
-                    elif manual_type == "TECHNICAL CALCULATION":
-                        if request.user.role == "User" and not request.user.is_view_manual:
-                            response = {
-                                "success": False,
-                                "message": "Required permission to view."
-                            }
-                            return Response(response, status=400)
+                    elif manual_type == "PROJECT SUBMMITED DRAWINGS":
+                        filter_criteria &= Q(
+                            Q(manual_type__icontains=query)
+                            | Q(manual_no__icontains=query)
+                            | Q(department__name__icontains=query)
+                            | Q(unit__name__icontains=query)
+                            | Q(description__icontains=query)
+                            | Q(title__icontains=query)
+                        )
                     else:
                         filter_criteria &= Q(
                             Q(manual_type__icontains=query)
@@ -135,7 +136,7 @@ class ManualAPIView(APIView):
                             | Q(department__name__icontains=query)
                             | Q(description__icontains=query)
                         )
-                instance = Manual.objects.select_related("department").filter(filter_criteria).order_by("manual_no_numeric")
+                instance = Manual.objects.select_related("department", "unit").filter(filter_criteria).order_by("manual_no_numeric")
                 
                 # Paginate the results using the custom pagination class
                 paginator = self.pagination_class()
@@ -159,6 +160,7 @@ class ManualAPIView(APIView):
                 "success": False,
                 "message": str(e)
             }
+            return Response(response, status=400)
     
     @allowed_admin_user
     def post(self, request):
@@ -598,14 +600,14 @@ class ManualAPIView(APIView):
 class DownloadManualFileApiView(APIView):
     def get(self, request, id):
         try:
-            if request.user.role == "User" and not request.user.is_view_manual:
-                response = {
-                    "success": False,
-                    "message": "Required permission to view."
-                }
-                return Response(response, status=400)
             try:
                 instance = Manual.objects.get(id=id)
+                if request.user.role == "User" and not validateDocumentPerm(request.user.document_permission, instance.manual_type):
+                    return Response({
+                        "success": False,
+                        "message": "Required View Permission.",
+                        "results": None,
+                    }, status=400)
             except Manual.DoesNotExist:
                 response = {
                     "success": False,
@@ -615,6 +617,10 @@ class DownloadManualFileApiView(APIView):
             if instance.upload_file:
                 file_path = instance.upload_file.path 
                 if os.path.exists(file_path):
+                    # file = open(file_path, 'rb')
+                    # response = StreamingHttpResponse(FileWrapper(file), content_type='application/octet-stream')
+                    # response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
+                    # response['Content-Length'] = os.path.getsize(file_path)
                     response = FileResponse(open(file_path, "rb"))
                     ManualLog.objects.create(
                         user = request.user,

@@ -2,7 +2,7 @@ from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from AuthApp.pagination import CustomPagination
-from AuthApp.models import User, Department, Unit, LogInOutLog, Subvolume, Volume
+from AuthApp.models import User, Department, Unit, LogInOutLog, Subvolume, Volume, default_document_permission, default_drawing_permission, default_standard_permission
 from SIApp.models import SIR, StabilityCertification, Compliance
 from StandardApp.models import Standard, StandardLog
 from ManualApp.models import Manual, ManualLog
@@ -451,34 +451,34 @@ class UserApiView(APIView):
             role = data.get("role", "User")
             department_id = data.get("department_id", None)
             designation = data.get("designation", None)
-            is_download_drawing = data.get("is_download_drawing", "NO") == "YES"
-            is_view_layout = data.get("is_view_layout", "NO") == "YES"
-            is_view_standard = data.get("is_view_standard", "NO") == "YES"
-            is_view_manual = data.get("is_view_manual", "NO") == "YES"
-            is_view_technical_calculation = data.get("is_view_technical_calculation", "NO") == "YES"
-            is_design_user = data.get("is_design_user", "NO") == "YES"
-            is_disable_dwg_file = data.get("is_disable_dwg_file", "NO") == "YES"
+            drawing_permission = data.get("drawing_permission", {})
+            standard_permission = data.get("standard_permission", {})
+            document_permission = data.get("document_permission", {})
+
+            default_drawing_perm = default_drawing_permission()
+            default_standard_perm = default_standard_permission()
+            default_document_perm = default_document_permission()
+
+            if not isinstance(drawing_permission , dict) and all(isinstance(value, bool) for value in drawing_permission.values()) and (not set(default_drawing_perm.keys()) == set(drawing_permission.keys())):
+                response = {"success": False,"message": "Unkown Drawing Persmission received.",}
+                return Response(response, status=400)
+            
+            if not isinstance(standard_permission , dict) and all(isinstance(value, bool) for value in standard_permission.values()) and (not set(default_standard_perm.keys()) == set(standard_permission.keys())):
+                response = {"success": False,"message": "Unkown standard Persmission received.",}
+                return Response(response, status=400)
+            
+            if not isinstance(document_permission , dict) and all(isinstance(value, bool) for value in document_permission.values()) and (not set(default_document_perm.keys()) == set(document_permission.keys())):
+                response = {"success": False,"message": "Unkown Document Persmission received.",}
+                return Response(response, status=400)
+
+            if drawing_permission.get('disable_dwg_file'):
+                drawing_permission['download_drawing'] = False
+            
             if role == "Admin":
-                is_download_drawing = True
-                is_view_layout = True
-                is_view_standard = True
-                is_view_manual = True
-                is_disable_dwg_file = False
-                is_design_user = True
-                is_view_technical_calculation=True
-            
-            if is_design_user:
-                is_view_layout = True
-                is_view_standard = True
-                is_view_manual = True
-                is_view_technical_calculation=True
-            
-            if is_disable_dwg_file:
-                is_download_drawing = False
-                
-            if not is_view_manual:
-                is_view_technical_calculation = False
-                
+                drawing_permission = {key: not value for key, value in default_drawing_perm.items()}
+                standard_permission = {key: not value for key, value in default_standard_perm.items()}
+                document_permission = {key: not value for key, value in default_document_perm.items()}
+                            
             if not all(
                 [
                     full_name,
@@ -497,9 +497,7 @@ class UserApiView(APIView):
                 }
                 return Response(response, status=400)
 
-            email_pattern = re.compile(
-                r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b"
-            )
+            email_pattern = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b")
             if not email_pattern.match(email):
                 response = {
                     "success": False,
@@ -556,13 +554,9 @@ class UserApiView(APIView):
                     role=role,
                     department=departments.first(),
                     designation=designation,
-                    is_download_drawing=is_download_drawing,
-                    is_view_layout=is_view_layout,
-                    is_view_standard = is_view_standard,
-                    is_view_manual = is_view_manual,
-                    is_disable_dwg_file=is_disable_dwg_file,
-                    is_view_technical_calculation=is_view_technical_calculation,
-                    is_design_user = is_design_user,
+                    drawing_permission=drawing_permission,
+                    standard_permission=standard_permission,
+                    document_permission = document_permission,
                     is_staff=True,
                     is_active=True,
                 )
@@ -592,35 +586,34 @@ class UserApiView(APIView):
             role = data.get("role", "User")
             department_id = data.get("department_id", None)
             designation = data.get("designation", None)
-            is_download_drawing = data.get("is_download_drawing", "NO") == "YES"
-            is_view_layout = data.get("is_view_layout", "NO") == "YES"
-            is_view_standard = data.get("is_view_standard", "NO") == "YES"
-            is_view_manual = data.get("is_view_manual", "NO") == "YES"
-            is_view_technical_calculation = data.get("is_view_technical_calculation", "NO") == "YES"
-            is_design_user = data.get("is_design_user", "NO") == "YES"
-            is_disable_dwg_file = data.get("is_disable_dwg_file", "NO") == "YES"
+            drawing_permission = data.get("drawing_permission", {})
+            standard_permission = data.get("standard_permission", {})
+            document_permission = data.get("document_permission", {})
+
+            default_drawing_perm = default_drawing_permission()
+            default_standard_perm = default_standard_permission()
+            default_document_perm = default_document_permission()
+
+            if not isinstance(drawing_permission , dict) and all(isinstance(value, bool) for value in drawing_permission.values()) and (not set(default_drawing_perm.keys()) == set(drawing_permission.keys())):
+                response = {"success": False,"message": "Unkown Drawing Persmission received.",}
+                return Response(response, status=400)
+            
+            if not isinstance(standard_permission , dict) and all(isinstance(value, bool) for value in standard_permission.values()) and (not set(default_standard_perm.keys()) == set(standard_permission.keys())):
+                response = {"success": False,"message": "Unkown standard Persmission received.",}
+                return Response(response, status=400)
+            
+            if not isinstance(document_permission , dict) and all(isinstance(value, bool) for value in document_permission.values()) and (not set(default_document_perm.keys()) == set(document_permission.keys())):
+                response = {"success": False,"message": "Unkown Document Persmission received.",}
+                return Response(response, status=400)
+
+            if drawing_permission.get('disable_dwg_file'):
+                drawing_permission['download_drawing'] = False
+            
             if role == "Admin":
-                is_download_drawing = True
-                is_view_layout = True
-                is_view_standard = True
-                is_view_manual = True
-                is_disable_dwg_file = False
-                is_design_user = True
-                is_view_technical_calculation=True
-            
-            if is_design_user:
-                is_view_layout = True
-                is_view_standard = True
-                is_view_manual = True
-                is_view_technical_calculation=True
-            
-            if is_disable_dwg_file:
-                is_download_drawing = False
+                drawing_permission = {key: not value for key, value in default_drawing_perm.items()}
+                standard_permission = {key: not value for key, value in default_standard_perm.items()}
+                document_permission = {key: not value for key, value in default_document_perm.items()}
                 
-            if not is_view_manual:
-                is_view_technical_calculation = False
-
-
             if not all(
                 [
                     user_id,
@@ -712,14 +705,10 @@ class UserApiView(APIView):
                 instance.personnel_number = personnel_number
                 instance.role = role
                 instance.department = departments.first()
-                instance.is_download_drawing = is_download_drawing
-                instance.is_view_layout = is_view_layout
-                instance.is_view_manual = is_view_manual
-                instance.is_view_standard = is_view_standard
-                instance.is_disable_dwg_file = is_disable_dwg_file
                 instance.designation = designation
-                instance.is_view_technical_calculation = is_view_technical_calculation
-                instance.is_design_user = is_design_user
+                instance.drawing_permission=drawing_permission
+                instance.standard_permission=standard_permission
+                instance.document_permission = document_permission
                 instance.save()
                 response = {
                     "success": True,
