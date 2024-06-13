@@ -680,7 +680,7 @@ class DrawingEditApiView(APIView):
                     log_details += f"Department: {drawing.department.name if drawing.department else None} ➡️ {department.name if department else None} |"
                     drawing.department = department
 
-                if drawing.department != department:
+                if drawing.unit != unit:
                     log_details += f"Unit: {drawing.unit.name if drawing.unit else None} ➡️ {unit.name if unit else None} |"
                     drawing.unit = unit
 

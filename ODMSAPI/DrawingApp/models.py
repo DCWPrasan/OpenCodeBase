@@ -214,5 +214,3 @@ def removeDrawingFile(drawingFile):
         print("Drawing File Is Deleted")
     else:
         print("Drawing File Is Empty")
-
-
