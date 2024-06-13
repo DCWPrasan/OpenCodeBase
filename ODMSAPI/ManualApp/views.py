@@ -1251,6 +1251,9 @@ class BulkUploadManualApiView(APIView):
                 capacity = data.get("capacity", None) or None
                 year = data.get("year", None) or None
                 file = data.get("file", None) or None
+                file_type = data.get("file_type", None) or None
+                title = data.get("title", None) or None
+
                 
                 required_field = [
                     manual_no,
@@ -1263,7 +1266,7 @@ class BulkUploadManualApiView(APIView):
                     )
                     continue
                 
-                if manual_type in ["MANUALS", "TENDER DOCUMENT","TECHNICAL CALCULATION", "TECHNICAL SPECIFICATION", "TECHNICAL REPORT"]:
+                if manual_type in ["MANUALS", "TENDER DOCUMENT","TECHNICAL CALCULATION", "TECHNICAL SPECIFICATION", "TECHNICAL REPORT", "PROJECT SUBMITTED DRAWINGS"]:
                     if department:
                         if department_exist := Department.objects.filter(department_id__icontains=department):
                             department = department_exist.first()
@@ -1275,7 +1278,7 @@ class BulkUploadManualApiView(APIView):
                     else:
                         department = None
                     
-                if manual_type in ["MANUALS", "TENDER DOCUMENT"]:
+                if manual_type in ["MANUALS", "TENDER DOCUMENT", "PROJECT SUBMITTED DRAWINGS"]:
                     if manual_type == "TENDER DOCUMENT":
                         package_no = None
                         letter_no = None
@@ -1287,6 +1290,9 @@ class BulkUploadManualApiView(APIView):
                     author = None
                     capacity = None
                     year = None
+                    if manual_type != "PROJECT SUBMITTED DRAWINGS":
+                        title = None
+                        file_type = None
                     if unit:
                         if unit_exist := Unit.objects.filter(unit_id__icontains=unit):
                             unit = unit_exist.first()
@@ -1308,6 +1314,8 @@ class BulkUploadManualApiView(APIView):
                     remarks = None
                     capacity = None
                     year = None
+                    title = None
+                    file_type = None
                     if manual_type == "CATALOUGE":
                         editor = None
                         author = None
@@ -1322,6 +1330,8 @@ class BulkUploadManualApiView(APIView):
                     editor = None
                     author = None
                     source = None
+                    title = None
+                    file_type = None
                     
                 elif manual_type == "PROJECT REPORT":
                     department = None
@@ -1332,6 +1342,23 @@ class BulkUploadManualApiView(APIView):
                     editor = None
                     author = None
                     source = None
+                    title = None
+                    file_type = None
+                elif manual_type == "PROJECT SUBMITTED DRAWINGS":
+                    if file_type not in ["PDF", "DWG"]:
+                        error_data_set.append(
+                        {"row": index, "message": "Invalid manual type."})
+                        continue
+                    package_no = None
+                    supplier = None
+                    letter_no = None
+                    registration_date = None
+                    editor = None
+                    author = None
+                    source = None
+                    remarks = None
+                    capacity = None
+                    year = None
                 else:
                     error_data_set.append(
                         {"row": index, "message": "Invalid manual type."}
@@ -1374,6 +1401,8 @@ class BulkUploadManualApiView(APIView):
                         "capacity": capacity,
                         "year": year,            
                         "file": file,
+                        "file_type":file_type,
+                        "title":title
                     })
                     
             if not error_data_set:
@@ -1395,6 +1424,8 @@ class BulkUploadManualApiView(APIView):
                         capacity = data.get("capacity")
                         year = data.get("year")
                         file = data.get("file")
+                        file_type = data.get("file_type")
+                        title = data.get("title")
                         
                         instance = Manual.objects.create(
                             manual_type = manual_type,
@@ -1413,6 +1444,8 @@ class BulkUploadManualApiView(APIView):
                             capacity = capacity,
                             year = year,
                             upload_file = file,
+                            file_type=file_type,
+                            title=title,
                             is_approved = request.user.is_superuser
                         )
                         ManualLog.objects.create(
