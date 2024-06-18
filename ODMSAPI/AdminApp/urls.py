@@ -39,4 +39,6 @@ urlpatterns = [
     path("search/rs_sub_volume", views.SearchSubVolumeApiView.as_view()),
     path("search/rs_volume", views.SearchRSVolumeApiView.as_view()),
     path("search/user", views.SearchUserApiView.as_view()),
+    path("export_data", views.ExportDataExcelApiView.as_view()),
+
 ]

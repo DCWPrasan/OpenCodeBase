@@ -553,7 +553,7 @@ class RacksView(APIView, CustomPagination):
                     }
                     return Response(response, status=400)
                 barcode = Barcodes.objects.filter(
-                    barcode_no=barcode_no, is_product_type=False
+                    barcode_no=barcode_no.upper(), is_product_type=False
                 ).first()
                 if not barcode:
                     response = {
@@ -611,7 +611,7 @@ class RacksView(APIView, CustomPagination):
                     }
                     return Response(response, status=400)
                 barcode = Barcodes.objects.filter(
-                    barcode_no=barcode_no, is_product_type=False
+                    barcode_no=barcode_no.upper(), is_product_type=False
                 ).first()
                 if not barcode:
                     response = {

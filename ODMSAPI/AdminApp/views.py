@@ -24,7 +24,8 @@ from AdminApp.serializers import (
     SubVolumeSerializer,
     VolumeSerializer,
     SearchRSVolumeSerializer,
-    TotalUserListSerializer
+    TotalUserListSerializer,
+    DrawingDataExcelSerializer
 )
 import re
 
@@ -33,7 +34,7 @@ from ManualApp.serializers import ManualLogSerializer
 from StandardApp.serializers import StandardLogSerializer
 from SIApp.serializers import SIRLogSerializer, StabilityCertificationLogSerializer, ComplianceLogSerializer
 from DrawingApp.models import DrawingLog, Drawing
-from AuthApp.customAuth import allowed_admin_user
+from AuthApp.customAuth import allowed_admin_user, allowed_superadmin
 
 
 class DashboardApiView(APIView):
@@ -1887,3 +1888,56 @@ class SearchUserApiView(APIView):
             Syserror(e)
             response = {"success": False, "message": str(e)}
             return Response(response, status=400)
+
+
+class ExportDataExcelApiView(APIView):
+    @allowed_superadmin
+    def get(self, request):
+        try:
+            # retrive single object of user model
+            filter_criteria = Q()
+            if from_date := request.GET.get("start_date", None):
+                try:
+                    from_date = datetime.strptime(from_date, "%Y-%m-%d").date()
+                    filter_criteria &= Q(created_at__date__gte=from_date)
+                except ValueError:
+                    pass
+
+            if to_date := request.GET.get("end_date", None):
+                try:
+                    to_date = datetime.strptime(to_date, "%Y-%m-%d").date()
+                    filter_criteria &= Q(created_at__date__lte=to_date)
+                except ValueError:
+                    pass
+            
+            export_data_type = request.GET.get("export_data_type", "Drawing")
+            if export_data_type == "Drawing":
+                instance = Drawing.objects.select_related('department', 'unit', 'sub_volume').filter(filter_criteria).order_by('drawing_number_numeric')
+                serializer_data = DrawingDataExcelSerializer(instance,many = True).data
+            elif export_data_type == "Standard":
+                pass
+
+            elif export_data_type == "Document":
+                pass
+            
+            elif export_data_type == "Document":
+                pass
+
+            elif export_data_type == "Stability Certificate":
+                pass
+
+            elif export_data_type == "Compliance":
+                pass
+            else:
+                serializer_data=[]
+            
+            return Response(
+                {
+                    "message": f"{export_data_type} Data Downloaded",
+                    "results": serializer_data,
+                },status=200)
+        except Exception as e:
+            Syserror(e)
+            response = {"success": False, "message": str(e)}
+            return Response(response, status=400)
+

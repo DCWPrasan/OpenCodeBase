@@ -1,5 +1,9 @@
 from rest_framework import serializers
 from AuthApp.models import User, Unit, Department, LogInOutLog, Subvolume,Volume
+from DrawingApp.models import Drawing
+from StandardApp.models import Standard
+from ManualApp.models import Manual
+from SIApp.models import SIR, StabilityCertification, Compliance
 
 class TotalUserListSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
@@ -157,3 +161,27 @@ class SearchUserSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class DrawingDataExcelSerializer(serializers.ModelSerializer):
+    department = serializers.SerializerMethodField()
+    unit = serializers.SerializerMethodField()
+    volume = serializers.SerializerMethodField()
+    layout = serializers.SerializerMethodField()
+    
+    def get_department(self, obj):
+        return obj.department.name if obj.department else None
+
+    def get_unit(self, obj):
+        return obj.unit.name if obj.unit else None
+    
+    def get_layout(self, obj):
+        return "YES" if obj.is_layout else "NO"
+
+    def get_volume(self, obj):
+        if obj.sub_volume:
+            return obj.sub_volume.name
+        return None
+    
+    class Meta:
+        model = Drawing
+        fields = ["drawing_type", "drawing_number", "department", "unit", "volume", "no_of_sheet", "revision_version", "layout", "work_order_number", "default_description"]
+        read_only_fields = fields
