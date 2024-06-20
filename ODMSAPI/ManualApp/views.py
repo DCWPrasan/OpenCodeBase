@@ -17,10 +17,10 @@ from django.db.models.functions import Concat
 from .models import Manual, ManualLog
 from rest_framework.response import Response
 from core.utility import Syserror, check_file, get_file_name, validateDocumentPerm
-from django.http import FileResponse
+from django.http import FileResponse, StreamingHttpResponse
 from AuthApp.customAuth import allowed_superadmin, allowed_admin_user
 from datetime import datetime
-# from wsgiref.util import FileWrapper
+from wsgiref.util import FileWrapper
 import os
 
 
@@ -617,12 +617,15 @@ class DownloadManualFileApiView(APIView):
             if instance.upload_file:
                 file_path = instance.upload_file.path 
                 if os.path.exists(file_path):
-                    # file = open(file_path, 'rb')
-                    # response = StreamingHttpResponse(FileWrapper(file), content_type='application/octet-stream')
-                    # response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
-                    # response['Content-Length'] = os.path.getsize(file_path)
-                    response = FileResponse(open(file_path, 'rb'))
-                    response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
+                    file = open(file_path, 'rb')
+                    if os.path.getsize(file_path) > 26214400: #25mb
+                        response = StreamingHttpResponse(FileWrapper(file), content_type='application/octet-stream')
+                        response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
+                        response['Content-Length'] = os.path.getsize(file_path)
+                    else:
+                        response = FileResponse(open(file_path, 'rb'))
+                        response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
+
                     ManualLog.objects.create(
                         user = request.user,
                         manual = instance,
