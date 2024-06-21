@@ -29,6 +29,7 @@ urlpatterns = [
     path("user_login_activity", views.UserLogInLogoutLogApiView.as_view()),
     path("user_login_activity/<str:user_id>", views.UserLogInLogoutLogApiView.as_view()),
     path("login_logout_log", views.LogInLogoutLogApiView.as_view()),
+    path("download_login_logout_log_excel", views.DownloadLogInLogoutLogExcelApiView.as_view()),
     path("department", views.DepartmentApiView.as_view()),
     path("department/<str:id>", views.UserApiView.as_view()),
     path("unit", views.UnitApiView.as_view()),

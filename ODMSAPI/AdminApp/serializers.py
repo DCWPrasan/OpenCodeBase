@@ -66,6 +66,20 @@ class UserLoginLogoutLogListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class DownloadLoginLogoutLogListExcelSerializer(serializers.ModelSerializer):
+    def to_representation(self, obj):
+        ret = super(DownloadLoginLogoutLogListExcelSerializer, self).to_representation(obj)
+        ret['user_name'] = obj.user.full_name
+        ret['personnel_number'] = obj.user.personnel_number
+        ret['status'] = obj.message
+        ret['action_time'] = obj.action_time.strftime("%d %b %Y %I:%M %p")
+        return ret
+    class Meta:
+        model = LogInOutLog
+        fields = ["device_info"]
+        read_only_fields = fields
+
+
 class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department

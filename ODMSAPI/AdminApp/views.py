@@ -25,7 +25,8 @@ from AdminApp.serializers import (
     VolumeSerializer,
     SearchRSVolumeSerializer,
     TotalUserListSerializer,
-    DrawingDataExcelSerializer
+    DrawingDataExcelSerializer,
+    DownloadLoginLogoutLogListExcelSerializer
 )
 import re
 
@@ -1196,6 +1197,68 @@ class LogInLogoutLogApiView(APIView):
                 "message": str(e)
             }
             return Response(response, status=400)
+
+class DownloadLogInLogoutLogExcelApiView(APIView):
+    pagination_class = CustomPagination
+    serializer_class = DownloadLoginLogoutLogListExcelSerializer
+    
+    @allowed_admin_user
+    def get(self, request):
+        try:
+            filter_criteria = Q(user__is_superuser = False)
+            query = request.GET.get("query", '')
+            status = request.GET.get("status", None)
+            user_id = request.GET.get("user", None)
+            if query:
+                filter_criteria &= Q(
+                    Q(user__full_name__icontains=query)
+                    | Q(user__personnel_number__icontains=query)
+                    | Q(device_info__icontains=query)
+                )
+            if status:
+                filter_criteria &= Q(message__in=status.split(','))
+        
+            if from_date := request.GET.get("start_date", None):
+                try:
+                    from_date = datetime.strptime(from_date, "%Y-%m-%d").date()
+                    filter_criteria &= Q(action_time__date__gte=from_date)
+                except ValueError:
+                    pass
+            if to_date := request.GET.get("end_date", None):
+                try:
+                    to_date = datetime.strptime(to_date, "%Y-%m-%d").date()
+                    filter_criteria &= Q(action_time__date__lte=to_date)
+                except ValueError:
+                    pass
+            
+            if user_id :
+                filter_criteria &= Q(user__id__in=user_id.split(','))
+            instance = LogInOutLog.objects.select_related("user").filter(filter_criteria).order_by("-action_time")
+            
+            # Paginate the results using the custom pagination class
+            paginator = self.pagination_class()
+            page = paginator.paginate_queryset(instance, request, view=self)
+            
+            if page is not None:
+                serializer = self.serializer_class(page, many=True)
+                result = paginator.get_paginated_response(serializer.data)
+                return result
+            serializer = self.serializer_class(instance, many=True)
+            response = {
+                "results": serializer.data,
+                "count": instance.count()
+            }
+            return Response(response, status=200)
+     
+        except Exception as e:
+            Syserror(e)
+            response = {
+                "success": False,
+                "message": str(e)
+            }
+            return Response(response, status=400)
+
+
 
 class DepartmentApiView(APIView):
     pagination_class = CustomPagination
