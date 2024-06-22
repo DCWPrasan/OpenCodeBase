@@ -25,6 +25,7 @@ from AdminApp.serializers import (
     VolumeSerializer,
     SearchRSVolumeSerializer,
     TotalUserListSerializer,
+    OnlineUserListSerializer,
     DrawingDataExcelSerializer,
     DownloadLoginLogoutLogListExcelSerializer
 )
@@ -409,6 +410,40 @@ class TotalUserApiView(APIView):
             Syserror(e)
             response = {"success": False, "message": str(e)}
             return Response(response, status=400)
+
+
+class OnlineUserApiView(APIView):
+    def get(self, request):
+        try:
+            today = datetime.now()
+            # retrive list of user object according to filter_criteria
+            filter_criteria = Q(
+                is_superuser=False, 
+                last_login__gt = (today-timedelta(hours=1))
+                , jti_token__isnull = False )
+            if query := request.GET.get("query"):
+                filter_criteria &= Q(
+                    Q(full_name__icontains=query)
+                    | Q(email__icontains=query)
+                    | Q(personnel_number__icontains=query)
+                    | Q(phone_number__icontains=query)
+                    | Q(department__name__icontains=query)
+                    | Q(department__department_id__icontains=query)
+                    | Q(designation__icontains=query)
+                )
+
+            instance = (
+                User.objects.select_related('department')
+                .filter(filter_criteria)
+                .order_by("-created_at")
+            )
+            serializer = OnlineUserListSerializer(instance, many=True)
+            return Response({"results": serializer.data}, status=200)
+        except Exception as e:
+            Syserror(e)
+            response = {"success": False, "message": str(e)}
+            return Response(response, status=400)
+
 
 
 # Create your views here.
@@ -1199,7 +1234,6 @@ class LogInLogoutLogApiView(APIView):
             return Response(response, status=400)
 
 class DownloadLogInLogoutLogExcelApiView(APIView):
-    pagination_class = CustomPagination
     serializer_class = DownloadLoginLogoutLogListExcelSerializer
     
     @allowed_admin_user
@@ -1235,14 +1269,6 @@ class DownloadLogInLogoutLogExcelApiView(APIView):
                 filter_criteria &= Q(user__id__in=user_id.split(','))
             instance = LogInOutLog.objects.select_related("user").filter(filter_criteria).order_by("-action_time")
             
-            # Paginate the results using the custom pagination class
-            paginator = self.pagination_class()
-            page = paginator.paginate_queryset(instance, request, view=self)
-            
-            if page is not None:
-                serializer = self.serializer_class(page, many=True)
-                result = paginator.get_paginated_response(serializer.data)
-                return result
             serializer = self.serializer_class(instance, many=True)
             response = {
                 "results": serializer.data,

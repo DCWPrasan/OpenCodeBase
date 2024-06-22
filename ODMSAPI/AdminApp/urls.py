@@ -10,6 +10,7 @@ urlpatterns = [
     path("si_log_graph", views.DashboardSILogGraphView.as_view()),
     path("visitor_count", views.VisitorCountApiView.as_view()),
     path("total_user", views.TotalUserApiView.as_view()),
+    path("online_user", views.OnlineUserApiView.as_view()),
     path("user", views.UserApiView.as_view()),
     path("user/<str:id>", views.UserApiView.as_view()),
     path("user_status_update", views.UserStatusUpadteApiView.as_view()),

@@ -16,6 +16,17 @@ class TotalUserListSerializer(serializers.ModelSerializer):
         fields = ["full_name", "personnel_number", "designation"]
         read_only_fields = fields
 
+class OnlineUserListSerializer(serializers.ModelSerializer):
+    def to_representation(self, obj):
+        ret = super(OnlineUserListSerializer, self).to_representation(obj)
+        ret['department'] = obj.department.name if obj.department else None
+        ret['last_login'] = obj.last_login.strftime("%d %b %Y %I:%M %p") if obj.last_login else None
+        return ret
+    
+    class Meta:
+        model = User
+        fields = ["full_name", "personnel_number", "designation"]
+        read_only_fields = fields
 
 class UserListSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
