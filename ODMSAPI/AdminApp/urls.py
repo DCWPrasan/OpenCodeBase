@@ -9,6 +9,7 @@ urlpatterns = [
     path("manual_log_graph", views.DashboardManualLogGraphView.as_view()),
     path("si_log_graph", views.DashboardSILogGraphView.as_view()),
     path("visitor_count", views.VisitorCountApiView.as_view()),
+    path("pie_chart_count", views.PieChartCountApiView.as_view()),
     path("total_user", views.TotalUserApiView.as_view()),
     path("online_user", views.OnlineUserApiView.as_view()),
     path("user", views.UserApiView.as_view()),

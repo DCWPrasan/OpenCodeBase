@@ -153,6 +153,103 @@ class DashboardApiView(APIView):
             return Response(response, status=400)
 
 
+class PieChartCountApiView(APIView):
+
+    def get(self, request):
+        try:
+            data = {}
+            drawing = Drawing.objects.filter(is_approved=True, is_archive=False).only('id', "drawing_type").aggregate(
+                pdr=Count("id", filter=Q(drawing_type="PDR")),
+                cdbr=Count("id", filter=Q(drawing_type="CDBR")),
+                rs=Count("id", filter=Q(drawing_type="RS")),
+                ps=Count("id", filter=Q(drawing_type="PS")),
+                fdr=Count("id", filter=Q(drawing_type="FDR")),
+                misc=Count("id", filter=Q(drawing_type="MISC")),
+            )
+            data["drawing"] = {
+                "lavel":["PDR", "CDBR", "RS", "PS", "FDR", "MISC"],
+                "series":[drawing["pdr"] or 0, 
+                          drawing["cdbr"] or 0, 
+                          drawing["rs"] or 0, 
+                          drawing["ps"] or 0,
+                          drawing["fdr"] or 0,
+                          drawing["misc"] or 0]
+            }
+
+            standard = Standard.objects.filter(is_approved=True, is_archive=False).only('id', "standard_type").aggregate(
+                rsn=Count("id", filter=Q(standard_type="RSN")),
+                ipss=Count("id", filter=Q(standard_type="IPSS")),
+                bis=Count("id", filter=Q(standard_type="BIS")),
+                astm=Count("id", filter=Q(standard_type="ASTM")),
+                awwa=Count("id", filter=Q(standard_type="AWWA")),
+                british=Count("id", filter=Q(standard_type="BRITISH")),
+                din_german=Count("id", filter=Q(standard_type="DIN(GERMAN)")),
+                gost_russian=Count("id", filter=Q(standard_type="GOST(RUSSIAN)")),
+                iec=Count("id", filter=Q(standard_type="IEC")),
+                iso=Count("id", filter=Q(standard_type="ISO")),
+                irst=Count("id", filter=Q(standard_type="IRST")),
+                api=Count("id", filter=Q(standard_type="API")),
+                psn=Count("id", filter=Q(standard_type="PSN")),
+            )
+
+            data["standard"] = {
+                "lavel":["RSN", "IPSS", "BIS", "ASTM", "AWWA", "BRITISH", "DIN(GERMAN)", "GOST(RUSSIAN)",
+                        "IEC", "ISO", "IRST", "API", "PSN"],
+                "series":[standard["rsn"] or 0, 
+                          standard["ipss"] or 0, 
+                          standard["bis"] or 0, 
+                          standard["astm"] or 0,
+                          standard["awwa"] or 0,
+                          standard["british"] or 0,
+                          standard["din_german"] or 0,
+                          standard["gost_russian"] or 0,
+                          standard["iec"] or 0,
+                          standard["iso"] or 0,
+                          standard["irst"] or 0,
+                          standard["api"] or 0,
+                          standard["psn"] or 0]
+            }
+
+            document = Manual.objects.filter(is_approved=True, is_archive=False).only('id', "manual_type").aggregate(
+                manuals=Count("id", filter=Q(manual_type="MANUALS")),
+                rb=Count("id", filter=Q(manual_type="REFERENCE BOOK")),
+                td=Count("id", filter=Q(manual_type="TENDER DOCUMENT")),
+                catalouge=Count("id", filter=Q(manual_type="CATALOUGE")),
+                tc=Count("id", filter=Q(manual_type="TECHNICAL CALCULATION")),
+                ts=Count("id", filter=Q(manual_type="TECHNICAL SPECIFICATION")),
+                tr=Count("id", filter=Q(manual_type="TECHNICAL REPORT")),
+                pr=Count("id", filter=Q(manual_type="PROJECT REPORT")),
+                psd=Count("id", filter=Q(manual_type="PROJECT SUBMITTED DRAWINGS")),
+            )
+            data["document"] = {
+                "lavel":["MANUALS", "RB", "TD", "CATALOUGE", "TC", "TS", "TR", "PR", "PSD"],
+                "series":[
+                          document["manuals"] or 0, 
+                          document["rb"] or 0, 
+                          document["td"] or 0, 
+                          document["catalouge"] or 0,
+                          document["tc"] or 0,
+                          document["ts"] or 0,
+                          document["tr"] or 0,
+                          document["pr"] or 0,
+                          document["psd"] or 0
+                        ]
+            }
+            sir_count = SIR.objects.filter(is_approved=True, is_archive=False).only('id').count()
+            sc_count = StabilityCertification.objects.filter(is_approved=True, is_archive=False).only('id').count()
+            compliance_count = Compliance.objects.filter(is_approved=True, is_archive=False).only('id').count()
+            data["si"] = {
+                "lavel":["SIR", "STABILITY CERTIFICATE", "COMPLIANCE"],
+                "series":[sir_count,sc_count,compliance_count]
+            }
+            response = {"success": True, "message": "Dashboard data", "results": data}
+            return Response(response, status=200)
+        except Exception as e:
+            Syserror(e)
+            response = {"success": False, "message": str(e)}
+            return Response(response, status=400)
+
+
 
 class VisitorCountApiView(APIView):
 
@@ -162,7 +259,7 @@ class VisitorCountApiView(APIView):
             loginlog = LogInOutLog.objects.only('message').filter(message = "Login")
             today_visitor = loginlog.filter(action_time__date = today.date()).count()
             user = User.objects.filter(is_superuser = False).only('id')
-            online_user = user.filter(Q(last_login__gt = (today-timedelta(hours=1))) | Q(jti_token__isnull = False) ).count()
+            online_user = user.filter(jti_token__isnull = False,  last_login__gt = (today-timedelta(hours=1)) ).count()
             data = {
                 "today_visitor": today_visitor,
                 "total_visitor": loginlog.count(),
@@ -417,10 +514,7 @@ class OnlineUserApiView(APIView):
         try:
             today = datetime.now()
             # retrive list of user object according to filter_criteria
-            filter_criteria = Q(
-                Q(is_superuser=False), 
-                Q(last_login__gt = (today-timedelta(hours=1)))  | Q(jti_token__isnull = False) 
-                )
+            filter_criteria = Q(is_superuser=False, jti_token__isnull = False, last_login__gt = (today-timedelta(hours=1)) )
             if query := request.GET.get("query"):
                 filter_criteria &= Q(
                     Q(full_name__icontains=query)

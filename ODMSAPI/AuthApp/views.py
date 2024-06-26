@@ -165,6 +165,8 @@ class UserLoginCheck(APIView):
             user = request.user
             if not user:
                 raise ValueError("User Not Authorized")
+            user.last_login = datetime.now()
+            user.save()
             userData = UserProfileSerializer(user).data
             resp_data = {"success": True, "message": "User login", "data": userData}
             return Response(resp_data, status=200)
