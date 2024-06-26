@@ -418,9 +418,9 @@ class OnlineUserApiView(APIView):
             today = datetime.now()
             # retrive list of user object according to filter_criteria
             filter_criteria = Q(
-                is_superuser=False, 
-                last_login__gt = (today-timedelta(hours=1))
-                , jti_token__isnull = False )
+                Q(is_superuser=False), 
+                Q(last_login__gt = (today-timedelta(hours=1)))  | Q(jti_token__isnull = False) 
+                )
             if query := request.GET.get("query"):
                 filter_criteria &= Q(
                     Q(full_name__icontains=query)
@@ -435,7 +435,7 @@ class OnlineUserApiView(APIView):
             instance = (
                 User.objects.select_related('department')
                 .filter(filter_criteria)
-                .order_by("-created_at")
+                .order_by("-last_login")
             )
             serializer = OnlineUserListSerializer(instance, many=True)
             return Response({"results": serializer.data}, status=200)
