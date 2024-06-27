@@ -199,40 +199,60 @@ class UserProfileView(APIView):
     def post(self, request):
         try:
             data = request.data
-            file = data.get("profile_photo", None)
-            is_file_list_valid = isinstance(file, InMemoryUploadedFile) or isinstance(
-                file, UploadedFile
-            )
-            if not is_file_list_valid:
+            is_change_profile = data.get("remove_profile", "NO") == "YES"
+            if is_change_profile:
+                user = request.user
+                if user.profile_photo:
+                    pp_path = user.profile_photo.path
+                    if os.path.isfile(pp_path):
+                        os.remove(pp_path)
+                    user.profile_photo = None
+                    user.save()
+                    response = {
+                    "success": True,
+                    "message": "User profile photo removed successfully.",
+                    "results": None,
+                    }
+                    return Response(response, status=200)
+                else:
+                    response = {"success": False,"message": "User don't have any profile photo"}
+                    return Response(response, status=400)
+                
+            else:
+                file = data.get("profile_photo", None)
+                is_file_list_valid = isinstance(file, InMemoryUploadedFile) or isinstance(
+                    file, UploadedFile
+                )
+                if not is_file_list_valid:
+                    response = {
+                        "success": False,
+                        "message": "choose a valid file",
+                    }
+                    return Response(response, status=400)
+                _, extension = get_file_name_and_extension(file.name)
+
+                if extension not in ["JPG", "JPEG", "PNG"]:
+                    response = {
+                        "success": False,
+                        "message": "invalid file extension",
+                    }
+                    return Response(response, status=400)
+
+                user = request.user
+                pp_path = None
+                if user.profile_photo:
+                    pp_path = user.profile_photo.path
+                user.profile_photo = file
+                user.save()
+                if pp_path and os.path.isfile(pp_path):
+                    os.remove(pp_path)
+
                 response = {
-                    "success": False,
-                    "message": "choose a valid file",
+                    "success": True,
+                    "message": "User profile photo updated successfully.",
+                    "results": user.profile_photo.url,
                 }
-                return Response(response, status=400)
-            _, extension = get_file_name_and_extension(file.name)
-
-            if extension not in ["JPG", "JPEG", "PNG"]:
-                response = {
-                    "success": False,
-                    "message": "invalid file extension",
-                }
-                return Response(response, status=400)
-
-            user = request.user
-            pp_path = None
-            if user.profile_photo:
-                pp_path = user.profile_photo.path
-            user.profile_photo = file
-            user.save()
-            if pp_path and os.path.isfile(pp_path):
-                os.remove(pp_path)
-
-            response = {
-                "success": True,
-                "message": "User profile photo updated successfully.",
-                "results": user.profile_photo.url,
-            }
-            return Response(response, status=200)
+                return Response(response, status=200)
         except Exception as e:
             Syserror(e)
             response = {
@@ -249,6 +269,9 @@ class UserProfileView(APIView):
             if not ([new_password, password]):
                 response = {"success": False, "message": "All the mandatory fields are required"}
                 return Response(response, status=400)
+            if new_password == password:
+                response = {"success": False, "message": "Please enter different new password"}
+                return Response(response, status=400)
             user = request.user
             if user.check_password(password):
                 user.set_password(new_password)
@@ -260,14 +283,17 @@ class UserProfileView(APIView):
                     details="User Logout (change password)",
                     device_info=device_info,
                 )
-            user.save()
-            resp_data = UserProfileSerializer(user).data
-            response = {
-                "success": True,
-                "message": "User Password update successfully.",
-                "data": resp_data,
-            }
-            return Response(response, status=200)
+                user.save()
+                resp_data = UserProfileSerializer(user).data
+                response = {
+                    "success": True,
+                    "message": "User Password update successfully.",
+                    "data": resp_data,
+                }
+                return Response(response, status=200)
+            else:
+                response = {"success": False, "message": "Invalid current password"}
+                return Response(response, status=400)
         except Exception as e:
             response = {
                 "success": False,
