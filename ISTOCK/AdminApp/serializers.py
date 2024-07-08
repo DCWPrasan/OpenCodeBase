@@ -104,6 +104,19 @@ class StocksSerializer(serializers.ModelSerializer):
         fields = ["id", "quantity", "source"]
         read_only_fields = fields
 
+class StocksRecommendedSerializer(serializers.ModelSerializer):
+    def to_representation(self, obj):
+        ret = super(StocksRecommendedSerializer, self).to_representation(obj)
+        ret["rack"] = obj.rack.rack_no
+        ret["barcode"] = obj.barcode.barcode_no
+        ret["created_at"] = obj.created_at.strftime("%d %b %Y")
+        return ret
+
+    class Meta:
+        model = Stocks
+        fields = ["id", "quantity"]
+        read_only_fields = fields
+
 
 class StocksHistorySerializer(serializers.ModelSerializer):
     def to_representation(self, obj):

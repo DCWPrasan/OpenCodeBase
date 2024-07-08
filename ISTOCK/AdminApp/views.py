@@ -22,6 +22,7 @@ from .serializers import (
     ReportEmployeeSerializer,
     ReportMaterialUsageSerializer,
     ReportDeadStockItemSerializer,
+    StocksRecommendedSerializer
 
 )
 from rest_framework.views import APIView
@@ -697,11 +698,14 @@ class ProductsView(APIView, CustomPagination):
                     .filter(stock__product__id=id)
                     .order_by("-created_at")[:10]
                 )
+                recommended = Stocks.objects.select_related('rack', 'product', 'barcode').filter(product = instance, quantity__gt=0).order_by("-created_at")[:10]
                 product_serializer = ProductsDetailsSerializer(instance)
                 history_serializer = StocksHistorySerializer(history, many=True)
+                recommended_stock = StocksRecommendedSerializer(recommended, many = True)
                 data = {
                     "product": product_serializer.data,
                     "racks": racks,
+                    "recommended_stock":recommended_stock.data,
                     "histories": history_serializer.data,
                 }
                 response = {
