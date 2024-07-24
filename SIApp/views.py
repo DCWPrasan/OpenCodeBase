@@ -72,6 +72,7 @@ class SirApiView(APIView):
                         | Q(unit__name__icontains=query)
                         | Q(year_of_inspection__icontains=query)
                         | Q(description__icontains=query)
+                        | Q(agency__icontains=query)
                     )
 
                 instance = SIR.objects.filter(filter_criteria).order_by("-created_at").distinct()
@@ -105,6 +106,7 @@ class SirApiView(APIView):
             unit = data.get("unit_id", None) or None
             year_of_inspection = data.get("year_of_inspection", None) or None
             description = data.get("description", None) or None
+            agency = data.get("agency", None) or None
             compliance = data.get("compliance", "YES")
             attachment = data.get("file", None) or None
                         
@@ -180,6 +182,7 @@ class SirApiView(APIView):
                     year_of_inspection = year_of_inspection,
                     compliance=compliance,
                     description = description,
+                    agency=agency,
                     attachment = attachment,
                     is_approved = request.user.is_superuser
                 )
@@ -219,6 +222,7 @@ class SirApiView(APIView):
             year_of_inspection = data.get("year_of_inspection", None) or None
             compliance = data.get("compliance", "YES") 
             description = data.get("description", None) or None
+            agency = data.get("agency", None) or None
             attachment = data.get("file", None) or None
             
             if not id:
@@ -309,6 +313,10 @@ class SirApiView(APIView):
                 if instance.description != description:
                     log_details += f"Description : {instance.description} ➡️ {description} |"
                     instance.description = description
+
+                if instance.agency != agency:
+                    log_details += f"Agency : {instance.agency} ➡️ {agency} |"
+                    instance.agency = agency
 
                 if instance.compliance != compliance:
                     log_details += f"Compliance : {instance.compliance} ➡️ {compliance} |"
@@ -890,6 +898,7 @@ class StabilityCertificationApiView(APIView):
                         | Q(department__name__icontains=query)
                         | Q(unit__unit_id__icontains=query)
                         | Q(unit__name__icontains=query)
+                        | Q(agency__icontains=query)
                     )
 
                 instance = StabilityCertification.objects.filter(filter_criteria).order_by("-created_at").distinct()
@@ -924,6 +933,7 @@ class StabilityCertificationApiView(APIView):
             certificate_number = data.get("certificate_number", None) or None
             department = data.get("department_id", None) or None
             unit = data.get("unit_id", None) or None
+            agency = data.get("agency", None) or None
             attachment = data.get("file", None) or None
         
             if not all([certificate_number, department, attachment]):
@@ -995,6 +1005,7 @@ class StabilityCertificationApiView(APIView):
                     certificate_number = certificate_number,
                     department = department,
                     unit = unit,
+                    agency = agency,
                     attachment = attachment,
                     is_approved = request.user.is_superuser
                 )
@@ -1030,6 +1041,7 @@ class StabilityCertificationApiView(APIView):
             certificate_number = data.get("certificate_number", None) or None
             department = data.get("department_id", None) or None
             unit = data.get("unit_id", None) or None
+            agency = data.get("agency", None) or None
             attachment = data.get("file", None) or None
         
             if not id:
@@ -1111,6 +1123,10 @@ class StabilityCertificationApiView(APIView):
                     
                 if instance.unit != unit:
                     log_details += f"Unit : {instance.unit.name if unit else None} ➡️ {unit.name if unit else None} |"
+                    instance.unit = unit
+                    
+                if instance.agency != agency:
+                    log_details += f"Agency : {instance.agency} ➡️ {agency} |"
                     instance.unit = unit
                 
                 if attachment:

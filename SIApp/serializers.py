@@ -27,7 +27,7 @@ class SirSerializer(serializers.ModelSerializer):
         return ret
     class Meta:
         model = SIR
-        fields = ['id', 'sir_number', 'year_of_inspection', 'compliance', 'description', 'is_approved', 'is_archive', 'archive_reason', 'created_at']
+        fields = ['id', 'sir_number', 'year_of_inspection', 'compliance', 'description', 'agency', 'is_approved', 'is_archive', 'archive_reason', 'created_at']
         
 class SIRLogSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
@@ -86,7 +86,7 @@ class StabilityCertificationSerializer(serializers.ModelSerializer):
         return ret
     class Meta:
         model = StabilityCertification
-        fields = ['id', 'certificate_number', 'created_at', 'is_approved', 'is_archive', 'archive_reason', 'created_at']
+        fields = ['id', 'certificate_number', 'agency', 'created_at', 'is_approved', 'is_archive', 'archive_reason', 'created_at']
 
 class StabilityCertificationLogSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
