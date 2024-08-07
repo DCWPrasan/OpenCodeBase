@@ -2191,42 +2191,27 @@ class DownlaodDrawingZipFile(APIView):
             MAX_ZIP_SIZE = 2 * 1024 * 1024 * 1024  # 2 GB in bytes
             # retrive single object of user model
             filter_criteria = Q()
-            query = request.GET.get("query", "")
-            status = request.GET.get("status", None)
-            user_id = request.GET.get("user", None)
-            if query:
-                filter_criteria &= Q(
-                    Q(drawing__drawing_type__icontains=query)
-                    | Q(drawing__drawing_number__icontains=query)
-                    | Q(user__full_name__icontains=query)
-                    | Q(user__personnel_number__icontains=query)
-                    | Q(message__icontains=query)
-                )
-
-            if status and any(status == item[0] for item in DRAWING_LOG_STATUS_CHOICE):
-                filter_criteria &= Q(status__in=status.split(","))
+            output_filename = "drawing_files"
             if from_date := request.GET.get("start_date", None):
                 try:
                     from_date = datetime.strptime(from_date, "%Y-%m-%d").date()
-                    filter_criteria &= Q(action_time__date__gte=from_date)
+                    filter_criteria &= Q(created_at__date__gte=from_date)
+                    output_filename = f'{output_filename}_{from_date.strftime("%d_%b_%Y")}'
                 except ValueError:
                     pass
             if to_date := request.GET.get("end_date", None):
                 try:
                     to_date = datetime.strptime(to_date, "%Y-%m-%d").date()
-                    filter_criteria &= Q(action_time__date__lte=to_date)
+                    filter_criteria &= Q(created_at__date__lte=to_date)
+                    output_filename = f'{output_filename}__{to_date.strftime("%d_%b_%Y")}'
                 except ValueError:
                     pass
 
-            if drawing_type := request.GET.get("drawing_type", None):
-                filter_criteria &= Q(drawing__drawing_type__in=drawing_type.split(","))
+            if drawing_type := request.GET.get("drawing_types", None):
+                filter_criteria &= Q(drawing_type__in=drawing_type.split(","))
 
-            if user_id := request.GET.get("user", None):
-                filter_criteria &= Q(user__id__in=user_id.split(","))
-
-            drawing_ids = DrawingLog.objects.select_related("user", "drawing").filter(filter_criteria).values_list("drawing__id")
+            drawing_ids = Drawing.objects.select_related('department', 'unit', 'sub_volume').prefetch_related('files').filter(filter_criteria).values_list("id", flat=True)
             drawing_files = DrawingFile.objects.filter(drawing__id__in=drawing_ids)
-
             media_root = settings.MEDIA_ROOT  # Assuming media files are stored here
 
             # Calculate total size of files, checking for existence on the filesystem
@@ -2242,7 +2227,7 @@ class DownlaodDrawingZipFile(APIView):
                 
                 if df.dwg_file and df.dwg_file.name:
                     dwg_file_path = os.path.join(media_root, df.dwg_file.name)
-                    if os.path.is_file(dwg_file_path):
+                    if os.path.isfile(dwg_file_path):
                         dwg_file_size = os.path.getsize(dwg_file_path)
                         total_size += dwg_file_size
                         files_to_zip.append((df.dwg_file.name, dwg_file_path))
@@ -2251,7 +2236,7 @@ class DownlaodDrawingZipFile(APIView):
                 return HttpResponse("drawing file not found.", status=400)
             
             elif total_size > MAX_ZIP_SIZE:
-                return HttpResponse("The selected files exceed the 2 GB limit.", status=400)
+                return HttpResponse("The filter drawing files exceed the 2 GB limit.", status=400)
             
             # Create an in-memory zip file
             zip_buffer = io.BytesIO()
@@ -2264,7 +2249,7 @@ class DownlaodDrawingZipFile(APIView):
             # Set up the response
             zip_buffer.seek(0)
             response = HttpResponse(zip_buffer, content_type='application/zip')
-            response['Content-Disposition'] = 'attachment; filename=drawings_files_from_logs.zip'
+            response['Content-Disposition'] = f'attachment; filename={output_filename}.zip'
             return response
 
         except Exception as e:
