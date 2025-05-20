@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Stock Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ededed;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            background: #1863c2;
+            color: #ffffff;
+            padding: 15px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .summary {
+            text-align: left;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .summary span {
+            font-weight: bold;
+            color: #1863c2;
+        }
+
+        .table-container {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border: 1px solid #1863c2;
+            text-align: center;
+        }
+
+        th {
+            background: #1863c2;
+            color: white;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #777;
+            padding: 10px;
+            margin-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header Section -->
+        <div class="header">
+            📊 Daily Stock Report
+        </div>
+
+        <!-- Content Section -->
+        <div class="content">
+            <!-- Stock Summary -->
+            <div class="summary">
+                <p>📅 <strong>Date:</strong> <span>{{ today_date }}</span></p>
+                <p>📦 <strong>Total Stock In:</strong> <span>{{ today_stock_in }}</span></p>
+                <p>🚚 <strong>Total Stock Out:</strong> <span>{{ today_stock_out }}</span></p>
+            </div>
+
+            <!-- Top 5 Stock In -->
+            {% if most_stocked_in_today %}
+            <div class="table-container">
+                <h3>📥 Most Stock In Products </h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Stock In Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in most_stocked_in_today %}
+                        <tr>
+                            <td>{{product.stock__product__name}}</td>
+                            <td>{{product.total_quantity}}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <!-- Top 5 Stock Out -->
+            {% if most_stocked_out_today %}
+            <div class="table-container">
+                <h3>📤 Most Stock Out Products </h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Stock Out Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in most_stocked_out_today %}
+                        <tr>
+                            <td>{{product.stock__product__name}}</td>
+                            <td>{{product.total_quantity}}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <!-- Additional Info -->
+            {% if under_stock > 0 %}
+            <div class="summary">
+                <p>📌 <strong>Low Stock Alerts:</strong> <strong>{{ under_stock }}</strong> items need restocking.</p>
+            </div>
+            {%endif %}
+        </div>
+        <div class="footer">
+            This is an automated message. Please do not reply to this email.
+        </div>
+    </div>
+</body>
+
+</html>
