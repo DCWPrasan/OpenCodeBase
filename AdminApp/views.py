@@ -824,7 +824,7 @@ class ProductsView(APIView, CustomPagination):
                 if rack_id := request.GET.get("rack_id", None):
                     stocks = (
                         Stocks.objects.select_related("product", "rack")
-                        .filter(product=id, rack=rack_id)
+                        .filter(product=id, rack=rack_id, quantity__gt=0)
                         .values("barcode__barcode_no", "quantity", "rack__rack_no")
                         .order_by("-quantity")
                     )
@@ -1854,12 +1854,14 @@ class StocksView(APIView, CustomPagination):
         try:
             if stocks := Stocks.objects.filter(barcode__barcode_no=barcode.upper(), quantity__gt=0).order_by('-quantity', 'created_at'):
                 stock = stocks.first()
+                rack_stock_list = []
                 if stock.quantity > 0:
                     data = {
                         "id": stock.id,
                         "quantity": stock.quantity,
                         "product": stock.product.name,
-                        "rack":stock.rack.rack_no
+                        "rack":stock.rack.rack_no,
+                        "rack_stock_list":rack_stock_list
                     }
                     if stock.product.perishable_product:
                         older_stock_ids = request.GET.get("older_stock_id", "")
@@ -1893,7 +1895,9 @@ class StocksView(APIView, CustomPagination):
                                 print("old stock", lastStock)
                         else:
                             print("no stock found")
-
+                    
+                    if stock.product.is_mutli_type_unit and stocks.count() > 1:
+                        data["rack_stock_list"] = [{"stock_id":s.id, "rack":s.rack.rack_no, "quantity":s.quantity} for s in stocks]
                     response = {
                         "success": True,
                         "message": "Stock Get Succesfully",

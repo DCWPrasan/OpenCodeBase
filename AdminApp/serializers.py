@@ -28,7 +28,6 @@ class RacksSerializer(serializers.ModelSerializer):
 class RackStocksSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         ret = super(RackStocksSerializer, self).to_representation(obj)
-        ret["source"] = obj.source.name if obj.source else None
         ret["barcode"] = obj.barcode.barcode_no
         ret["created_at"] = obj.created_at.strftime("%d %b %Y %I:%M %p")
         ret["expired_date"] = obj.expired_date.strftime("%d %b %Y") if obj.expired_date else None
@@ -109,7 +108,7 @@ class StocksSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Stocks
-        fields = ["id", "quantity", "source"]
+        fields = ["id", "quantity"]
         read_only_fields = fields
 
 class StocksRecommendedSerializer(serializers.ModelSerializer):
