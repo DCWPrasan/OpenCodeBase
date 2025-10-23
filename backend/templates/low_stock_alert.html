@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Low Stock Alert</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: #1863c2;
+            padding: 15px;
+            color: white;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+        .content {
+            padding: 20px;
+            text-align: left;
+        }
+        .button {
+            display: inline-block;
+            background: #1863c2;
+            color: white;
+            text-decoration: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            font-size: 16px;
+        }
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #777;
+            padding: 10px;
+            margin-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            🚨 Low Stock Alert: {{product_name}}
+        </div>
+        <div class="content">
+            <!-- <p>Dear <strong>{{user_name}}</strong>,</p> -->
+            <p>We wanted to inform you that <strong>{{product_name}}</strong> is running low in stock. To avoid any disruption, please consider restocking as soon as possible.</p>
+            
+            <h3>📦 Stock Details:</h3>
+            <ul>
+                <li><strong>Product Name:</strong> {{product_name}}</li>
+                <li><strong>Current Stock:</strong> {{current_stock}}</li>
+                <li><strong>Reorder Level:</strong> {{min_stock}}</li>
+            </ul>
+
+            <p>Click the button below to view product details:</p>
+            <a href="{{product_url}}" class="button">View Product</a>
+
+
+            <p>Best regards,</p>
+            <p><strong>Intelistock</strong></p>
+        </div>
+
+        <div class="footer">
+            This is an automated message. Please do not reply to this email.
+        </div>
+    </div>
+
+</body>
+</html>
