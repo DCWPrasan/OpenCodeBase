@@ -51,14 +51,19 @@ from .models import (
     Requisition,
     RequisitionItem,
     Reservation,
-    ReservationItem
+    ReservationItem,
 )
 from AuthApp.models import Users, Designation, PERMISSION_KEYS
 from AuthApp.customAuth import allowed_permission
 from django.db.models import Q, Sum, Count, F, ExpressionWrapper, FloatField, Max
 from django.db.models.functions import Coalesce
 from django.conf import settings
-from AdminApp.utils import Syserror, validate_quantity, sendEmail_template, generate_random_number
+from AdminApp.utils import (
+    Syserror,
+    validate_quantity,
+    sendEmail_template,
+    generate_random_number,
+)
 from datetime import datetime, timedelta, date
 import calendar
 import re
@@ -73,9 +78,11 @@ from openpyxl.utils import get_column_letter
 import joblib
 from AdminApp.helper import send_daily_stock_report_mail
 
+
 def get_number_of_days(year, month):
     _, num_days = calendar.monthrange(year, month)
     return num_days
+
 
 def send_low_stock_email_alert(products):
     try:
@@ -101,6 +108,7 @@ def send_low_stock_email_alert(products):
             )
     except Exception as e:
         Syserror(e)
+
 
 class DashboardView(APIView):
     def get(self, request):
@@ -132,7 +140,9 @@ class DashboardView(APIView):
                 "today_stock_in": stock_history["stock_in"] or 0,
                 "today_stock_out": stock_history["stock_out"] or 0,
                 "total_product": Products.objects.count(),
-                "total_perishable_product": Products.objects.filter(perishable_product=True).count(),
+                "total_perishable_product": Products.objects.filter(
+                    perishable_product=True
+                ).count(),
                 "under_stock": prod["under_stock"] or 0,
                 "over_stock": prod["over_stock"] or 0,
                 "in_stock": prod["in_stock"] or 0,
@@ -207,7 +217,9 @@ class DashboardView(APIView):
             .order_by("expired_date")
         )
 
-        datewise_count = {entry["expired_date"]: entry["count"] for entry in expiring_stocks}
+        datewise_count = {
+            entry["expired_date"]: entry["count"] for entry in expiring_stocks
+        }
         counts = [datewise_count.get(date, 0) for date in date_ranges]
         dates = [date.strftime("%d-%b") for date in date_ranges]
         return {"stock": counts, "dates": dates}
@@ -220,7 +232,9 @@ class DashboardView(APIView):
                 status="PENDING", fulfillment_date__gte=today
             ).count(),
             "fulfilled": Requisition.objects.filter(status="FULFILLED").count(),
-            "partially_fulfilled": Requisition.objects.filter(status="PARTIALLY_FULFILLED").count(),
+            "partially_fulfilled": Requisition.objects.filter(
+                status="PARTIALLY_FULFILLED"
+            ).count(),
             "rejected": Requisition.objects.filter(status="REJECTED").count(),
             "cancelled": Requisition.objects.filter(status="CANCELLED").count(),
         }
@@ -231,7 +245,6 @@ class DashboardView(APIView):
             "fulfilled": Reservation.objects.filter(status="FULFILLED").count(),
             "cancelled": Reservation.objects.filter(status="CANCELLED").count(),
         }
-
 
 
 class DashboardProductUsesView(APIView):
@@ -629,7 +642,9 @@ class RacksView(APIView, CustomPagination):
                 if rack := Racks.objects.filter(
                     Q(id=id) | Q(barcode__barcode_no=id)
                 ).first():
-                    products = Products.objects.filter(stocks__rack=rack, stocks__quantity__gt=0).distinct()
+                    products = Products.objects.filter(
+                        stocks__rack=rack, stocks__quantity__gt=0
+                    ).distinct()
                     product_data = RacksProductDetailsSerializer(
                         products, many=True, context={"rack_id": id}
                     ).data
@@ -650,12 +665,12 @@ class RacksView(APIView, CustomPagination):
                     return Response(response, status=400)
 
             if query := request.GET.get("query"):
-                instance = Racks.objects.select_related('barcode').filter(
+                instance = Racks.objects.select_related("barcode").filter(
                     Q(rack_no__icontains=query)
                     | Q(barcode__barcode_no__icontains=query)
                 )
             else:
-                instance = Racks.objects.select_related('barcode')
+                instance = Racks.objects.select_related("barcode")
 
             instance = instance.annotate(
                 product=Count("stocks__product", distinct=True),
@@ -664,7 +679,7 @@ class RacksView(APIView, CustomPagination):
             if export := request.GET.get("export") == "true":
                 file_name = f"rack-data-{datetime.now().strftime('%d%m%y-%H%M')}.xlsx"
                 return self.export_rack_to_excel(instance, file_name)
-            
+
             if page := self.paginate_queryset(instance, request, view=self):
                 serializer = self.serializer_class(page, many=True)
                 result = self.get_paginated_response(serializer.data)
@@ -685,7 +700,7 @@ class RacksView(APIView, CustomPagination):
             Syserror(e)
             response = {"success": False, "message": str(e)}
             return Response(response, status=400)
-        
+
     def export_rack_to_excel(self, data, file_name):
         # print(buses_map)
         """
@@ -696,19 +711,11 @@ class RacksView(APIView, CustomPagination):
             sheet = workbook.active
             sheet.title = "sheet 1"
             # Headers
-            headers = [
-                "Rack",
-                "barcode",
-                "Material Count"
-            ]
+            headers = ["Rack", "barcode", "Material Count"]
             sheet.append(headers)
 
             for row in data:
-                sheet.append([
-                    row.rack_no,
-                    row.barcode.barcode_no,
-                    row.product
-                ])
+                sheet.append([row.rack_no, row.barcode.barcode_no, row.product])
 
             # Adjust column widths
             for col in sheet.columns:
@@ -729,9 +736,9 @@ class RacksView(APIView, CustomPagination):
                 content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
             response["Content-Disposition"] = f'attachment; filename="{file_name}"'
-            response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+            response["Access-Control-Expose-Headers"] = "Content-Disposition"
             return response
-        
+
         except Exception as e:
             Syserror(e)
             return Response({"success": False, "detail": str(e)}, status=400)
@@ -926,7 +933,7 @@ class ProductsView(APIView, CustomPagination):
                     | Q(price__icontains=query)
                     | Q(category__name__icontains=query)
                 )
-            
+
             if stock_type := request.GET.get("stock_type"):
                 if stock_type == "Under Stock":
                     f &= Q(net_quantity__lt=F("min_threshold"))
@@ -937,7 +944,7 @@ class ProductsView(APIView, CustomPagination):
                         net_quantity__gte=F("min_threshold"),
                         net_quantity__lte=F("max_threshold"),
                     )
-            
+
             if status := request.GET.get("status"):
                 if status == "Active":
                     f &= Q(is_active=True)
@@ -945,26 +952,28 @@ class ProductsView(APIView, CustomPagination):
                     f &= Q(is_active=False)
             else:
                 f &= Q(is_active=True)
-            
+
             if perishability := request.GET.get("perishability"):
                 if perishability == "Perishable Material":
                     f &= Q(perishable_product=True)
                 elif perishability == "Non-Perishable Material":
                     f &= Q(perishable_product=False)
-            
+
             if unit_type := request.GET.get("unit_type"):
                 if unit_type == "Multiple Quantities":
                     f &= Q(is_mutli_type_unit=True)
                 elif unit_type == "Single Quantity":
                     f &= Q(is_mutli_type_unit=False)
-            
+
             instance = (
                 Products.objects.select_related().filter(f).order_by("-created_at")
             )
             if export := request.GET.get("export") == "true":
-                file_name = f"material-data-{datetime.now().strftime('%d%m%y-%H%M')}.xlsx"
+                file_name = (
+                    f"material-data-{datetime.now().strftime('%d%m%y-%H%M')}.xlsx"
+                )
                 return self.export_material_to_excel(instance, file_name)
-            
+
             if page := self.paginate_queryset(instance, request, view=self):
                 serializer = self.serializer_class(page, many=True)
                 result = self.get_paginated_response(serializer.data)
@@ -985,8 +994,7 @@ class ProductsView(APIView, CustomPagination):
             Syserror(e)
             response = {"success": False, "message": str(e)}
             return Response(response, status=400)
-        
-    
+
     def export_material_to_excel(self, data, file_name):
         # print(buses_map)
         """
@@ -1009,24 +1017,26 @@ class ProductsView(APIView, CustomPagination):
                 "Unit",
                 "Unit Type",
                 "Perishability",
-                "Status"
+                "Status",
             ]
             sheet.append(headers)
 
             for row in data:
-                sheet.append([
-                    row.name,
-                    row.ucs_code,
-                    row.price,
-                    row.net_quantity,
-                    row.min_threshold,
-                    row.max_threshold,
-                    row.category.name,
-                    row.unit.name,
-                    f"{'Multiple Quantities' if row.is_mutli_type_unit else 'Single Quantity' }",
-                    f"{'Perishable Material' if row.perishable_product else 'Non-Perishable Material' }",
-                    f"{'Active' if row.is_active else 'Inactive' }",
-                ])
+                sheet.append(
+                    [
+                        row.name,
+                        row.ucs_code,
+                        row.price,
+                        row.net_quantity,
+                        row.min_threshold,
+                        row.max_threshold,
+                        row.category.name,
+                        row.unit.name,
+                        f"{'Multiple Quantities' if row.is_mutli_type_unit else 'Single Quantity' }",
+                        f"{'Perishable Material' if row.perishable_product else 'Non-Perishable Material' }",
+                        f"{'Active' if row.is_active else 'Inactive' }",
+                    ]
+                )
 
             # Adjust column widths
             for col in sheet.columns:
@@ -1048,14 +1058,12 @@ class ProductsView(APIView, CustomPagination):
                 content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
             response["Content-Disposition"] = f'attachment; filename="{file_name}"'
-            response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+            response["Access-Control-Expose-Headers"] = "Content-Disposition"
             return response
-        
+
         except Exception as e:
             Syserror(e)
             return Response({"success": False, "detail": str(e)}, status=400)
-
-
 
     @allowed_permission("manage_material")
     def post(self, request):
@@ -1146,7 +1154,7 @@ class ProductsView(APIView, CustomPagination):
                     category=product_category,
                     ucs_code=ucs_code,
                     perishable_product=perishable_product,
-                    is_active=True
+                    is_active=True,
                 )
                 response = {
                     "success": True,
@@ -1186,7 +1194,7 @@ class ProductsView(APIView, CustomPagination):
                         "message": "Material status must be true or false",
                     }
                     return Response(response, status=400)
-                
+
                 if lead_time := data.get("lead_time", None) or 1:
                     lead_time = (
                         int(lead_time) if isinstance(lead_time, str) else lead_time
@@ -1233,7 +1241,7 @@ class ProductsView(APIView, CustomPagination):
                         "message": f"Material have {instance.net_quantity} stocks ? Please clear all stocks then try inactive",
                     }
                     return Response(response, status=400)
-                
+
                 instance.name = name
                 instance.description = description
                 instance.description_sap = sap_description
@@ -1247,7 +1255,7 @@ class ProductsView(APIView, CustomPagination):
                 instance.category = product_category
                 instance.ucs_code = ucs_code
                 instance.perishable_product = perishable_product
-                instance.is_active=is_active
+                instance.is_active = is_active
                 instance.save()
                 response = {
                     "success": True,
@@ -1403,10 +1411,10 @@ class StocksView(APIView, CustomPagination):
                     "data": serializer.data,
                 }
                 return Response(response, status=200)
-            
+
             if barcode := request.GET.get("barcode", None):
                 return self.validate_stock_out_barcode(request, barcode)
-            
+
             instance = Products.objects.select_related().order_by("-created_at")
             if page := self.paginate_queryset(instance, request, view=self):
                 serializer = self.serializer_class(page, many=True)
@@ -1605,7 +1613,7 @@ class StocksView(APIView, CustomPagination):
 
                             borrowed_stock.borrowed_quantity -= quantity
                             borrowed_stock.save()
-    
+
                     if 0 < quantity <= i.quantity:
                         i.quantity -= quantity
                         i.save()
@@ -1698,17 +1706,18 @@ class StocksView(APIView, CustomPagination):
 
             if not barcode or not barcode.is_product_type:
                 raise ValueError("Invalid or non-material barcode.")
-        
+
             source = Source.objects.filter(
-                    id=data["source"],
-                    is_central_store=stockin_type not in ["BORROWING MATERIAL", "RECEIVE LENT MATERIAL"],
-                ).first()
+                id=data["source"],
+                is_central_store=stockin_type
+                not in ["BORROWING MATERIAL", "RECEIVE LENT MATERIAL"],
+            ).first()
             if not source:
                 raise ValueError("Source not found.")
 
             expired_date = None
             lent_material_stock = None
-            is_used_stock_barcode = False # check stock in for existing used barcode
+            is_used_stock_barcode = False  # check stock in for existing used barcode
             if stockin_type == "RETURN MATERIAL":
                 stock = barcode.stocks.first()
                 if not stock:
@@ -1740,7 +1749,7 @@ class StocksView(APIView, CustomPagination):
                                 "message": "Barcode already used, Can not accept duplicate Barcode for perishable material",
                             }
                             return Response(response, status=400)
-                
+
                         is_same_product = barcode.stocks.all().exclude(
                             product__id=product.id
                         )
@@ -1801,7 +1810,7 @@ class StocksView(APIView, CustomPagination):
 
                 elif is_used_stock_barcode:
                     instance = barcode.stocks.filter(rack=rack).first()
-    
+
                     if instance:
                         instance.quantity += quantity
                         instance.created_at = datetime.now()
@@ -1812,15 +1821,16 @@ class StocksView(APIView, CustomPagination):
                             barcode=barcode,
                             rack=rack,
                             product=product,
-                            expired_date=expired_date
+                            expired_date=expired_date,
                         )
                 else:
                     instance = Stocks.objects.create(
-                            quantity=quantity,
-                            barcode=barcode,
-                            rack=rack,
-                            product=product,
-                            expired_date=expired_date)
+                        quantity=quantity,
+                        barcode=barcode,
+                        rack=rack,
+                        product=product,
+                        expired_date=expired_date,
+                    )
 
                 if barcode.status != "Used":
                     barcode.status = "Used"
@@ -1874,10 +1884,11 @@ class StocksView(APIView, CustomPagination):
             Syserror(e)
             return Response({"success": False, "message": str(e)}, status=400)
 
-    
     def validate_stock_out_barcode(self, request, barcode):
         try:
-            if stocks := Stocks.objects.filter(barcode__barcode_no=barcode.upper(), quantity__gt=0).order_by('-quantity', 'created_at'):
+            if stocks := Stocks.objects.filter(
+                barcode__barcode_no=barcode.upper()
+            ).order_by("-quantity", "created_at"):
                 stock = stocks.first()
                 if stock.quantity > 0:
                     data = {
@@ -1886,7 +1897,7 @@ class StocksView(APIView, CustomPagination):
                         "product": stock.product.name,
                         "product_net_quantity": stock.product.net_quantity,
                         "ucs_code": stock.product.ucs_code,
-                        "rack":stock.rack.rack_no
+                        "rack": stock.rack.rack_no,
                     }
                     if stock.product.perishable_product:
                         older_stock_ids = request.GET.get("older_stock_id", "")
@@ -1938,11 +1949,12 @@ class StocksView(APIView, CustomPagination):
                     "message": "Invalid Barcode",
                 }
                 return Response(response, status=400)
-            
+
         except Exception as e:
             Syserror(e)
             response = {"success": False, "message": str(e)}
             return Response(response, status=400)
+
 
 class ProductsStockView(APIView, CustomPagination):
     serializer_class = ProductStocksSerializer
@@ -1970,7 +1982,7 @@ class ProductsStockView(APIView, CustomPagination):
             if export := request.GET.get("export") == "true":
                 file_name = f"{product.name}-stocks-data-{datetime.now().strftime('%d%m%y-%H%M')}.xlsx"
                 return self.export_material_stocks_to_excel(instance, file_name)
-            
+
             if page := self.paginate_queryset(instance, request, view=self):
                 serializer = self.serializer_class(page, many=True)
                 result = self.get_paginated_response(serializer.data)
@@ -1992,7 +2004,7 @@ class ProductsStockView(APIView, CustomPagination):
             Syserror(e)
             response = {"success": False, "message": str(e)}
             return Response(response, status=400)
-        
+
     def export_material_stocks_to_excel(self, data, file_name):
         # print(buses_map)
         """
@@ -2004,21 +2016,18 @@ class ProductsStockView(APIView, CustomPagination):
             sheet.title = "sheet 1"
 
             # Headers
-            headers = [
-                "Barcode",
-                "Rack",
-                "Quantity",
-                "Last Stock In Date"
-            ]
+            headers = ["Barcode", "Rack", "Quantity", "Last Stock In Date"]
             sheet.append(headers)
 
             for row in data:
-                sheet.append([
-                    row.barcode.barcode_no,
-                    row.rack.rack_no,
-                    row.quantity,
-                    row.updated_at.strftime("%d %b %Y, %I:%M %p"),
-                ])
+                sheet.append(
+                    [
+                        row.barcode.barcode_no,
+                        row.rack.rack_no,
+                        row.quantity,
+                        row.updated_at.strftime("%d %b %Y, %I:%M %p"),
+                    ]
+                )
 
             # Adjust column widths
             for col in sheet.columns:
@@ -2040,9 +2049,9 @@ class ProductsStockView(APIView, CustomPagination):
                 content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
             response["Content-Disposition"] = f'attachment; filename="{file_name}"'
-            response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+            response["Access-Control-Expose-Headers"] = "Content-Disposition"
             return response
-        
+
         except Exception as e:
             Syserror(e)
             return Response({"success": False, "detail": str(e)}, status=400)
@@ -2074,8 +2083,10 @@ class ProductsStockView(APIView, CustomPagination):
                     rack = Racks.objects.get(id=rack_id)
                 except:
                     raise ValueError("Rack not found")
-                
-                if new_rack_stock := Stocks.objects.filter(rack=rack, barcode=stock.barcode, product__id=id, quantity__gt=0).first():
+
+                if new_rack_stock := Stocks.objects.filter(
+                    rack=rack, barcode=stock.barcode, product__id=id, quantity__gt=0
+                ).first():
                     new_rack_stock.quantity = new_rack_stock.quantity + stock.quantity
                     new_rack_stock.save()
                     stock.quantity = 0
@@ -2083,7 +2094,7 @@ class ProductsStockView(APIView, CustomPagination):
                 else:
                     stock.rack = rack
                     stock.save()
-                
+
                 response = {
                     "success": True,
                     "message": "Stock Rack updated successfully",
@@ -2111,15 +2122,15 @@ class PerishableStockView(APIView, CustomPagination):
                     | Q(source__name__icontains=query)
                     | Q(rack__rack_no__icontains=query)
                 )
-            
+
             now_date = datetime.today().date()
             expiry_type = request.GET.get("expiry_type", "Expiry Soon")
             if expiry_type == "Expiry Soon":
                 soon_end_date = now_date + timedelta(days=60)
-                filter_criteria &= Q(expired_date__range=[now_date , soon_end_date])
+                filter_criteria &= Q(expired_date__range=[now_date, soon_end_date])
             else:
-                filter_criteria &=Q(expired_date__lt=now_date)
-                
+                filter_criteria &= Q(expired_date__lt=now_date)
+
             instance = (
                 Stocks.objects.select_related("rack", "product", "barcode")
                 .filter(filter_criteria)
@@ -2129,7 +2140,7 @@ class PerishableStockView(APIView, CustomPagination):
             if export := request.GET.get("export") == "true":
                 file_name = f"{'Expiry-Soon' if expiry_type == 'Expiry Soon' else 'Expired'}-perishable-stock-data-{datetime.now().strftime('%d%m%y-%H%M')}.xlsx"
                 return self.export_perishable_stocks_to_excel(instance, file_name)
-            
+
             if page := self.paginate_queryset(instance, request, view=self):
                 serializer = self.serializer_class(page, many=True)
                 result = self.get_paginated_response(serializer.data)
@@ -2150,7 +2161,7 @@ class PerishableStockView(APIView, CustomPagination):
             Syserror(e)
             response = {"success": False, "message": str(e)}
             return Response(response, status=400)
-        
+
     def export_perishable_stocks_to_excel(self, data, file_name):
         # print(buses_map)
         """
@@ -2168,19 +2179,21 @@ class PerishableStockView(APIView, CustomPagination):
                 "Rack",
                 "Quantity",
                 "Source",
-                "Expiry Date"
+                "Expiry Date",
             ]
             sheet.append(headers)
 
             for row in data:
-                sheet.append([
-                    row.product.name,
-                    row.barcode.barcode_no,
-                    row.rack.rack_no,
-                    row.quantity,
-                    row.source.name,
-                    row.expired_date.strftime("%d %b %Y"),
-                ])
+                sheet.append(
+                    [
+                        row.product.name,
+                        row.barcode.barcode_no,
+                        row.rack.rack_no,
+                        row.quantity,
+                        row.source.name,
+                        row.expired_date.strftime("%d %b %Y"),
+                    ]
+                )
 
             # Adjust column widths
             for col in sheet.columns:
@@ -2202,9 +2215,9 @@ class PerishableStockView(APIView, CustomPagination):
                 content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
             response["Content-Disposition"] = f'attachment; filename="{file_name}"'
-            response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+            response["Access-Control-Expose-Headers"] = "Content-Disposition"
             return response
-        
+
         except Exception as e:
             Syserror(e)
             return Response({"success": False, "detail": str(e)}, status=400)
@@ -2276,32 +2289,40 @@ class RequisitionItemForStockoutView(APIView):
     def get(self, request, requisition_id=None):
         try:
             if not requisition_id:
-                return Response({"success": False, "message": "Required Requisition Id"}, status=400)
-            
-            requisition = Requisition.objects.prefetch_related("items", "items__product").get(id=requisition_id)
+                return Response(
+                    {"success": False, "message": "Required Requisition Id"}, status=400
+                )
+
+            requisition = Requisition.objects.prefetch_related(
+                "items", "items__product"
+            ).get(id=requisition_id)
             requisition_items = requisition.items.filter(is_fulfilled=False)
             serializer = RequisitionItemStockoutSerializer(requisition_items, many=True)
             resp_data = {
-                "requisition":{
+                "requisition": {
                     "id": requisition.id,
                     "requested_by": requisition.requested_by.name,
                     "status": requisition.status,
-                    "fulfillment_date": requisition.fulfillment_date.strftime("%Y-%m-%d"),
+                    "fulfillment_date": requisition.fulfillment_date.strftime(
+                        "%Y-%m-%d"
+                    ),
                 },
-                "items": serializer.data
+                "items": serializer.data,
             }
             return Response({"success": True, "data": resp_data}, status=200)
-        
+
         except Exception as e:
             Syserror(e)
             return Response({"success": False, "message": str(e)}, status=400)
-        
+
     # STOCK OUT SINGLE RACK
     def put(self, request, requisition_id=None):
         try:
             if not requisition_id:
-                return Response({"success": False, "message": "Required Requisition Id"}, status=400)
-            
+                return Response(
+                    {"success": False, "message": "Required Requisition Id"}, status=400
+                )
+
             if request.user.role == "User":
                 has_permissions = request.user.user_permission.get(
                     "manage_stockout", False
@@ -2323,9 +2344,11 @@ class RequisitionItemForStockoutView(APIView):
                         "message": "Required items List for Requisition",
                     }
                     return Response(response, status=400)
-                
+
                 lowStockProduct = []
-                requisition = Requisition.objects.prefetch_related("items", "items__product").get(id=requisition_id)
+                requisition = Requisition.objects.prefetch_related(
+                    "items", "items__product"
+                ).get(id=requisition_id)
                 for item in requisition_items:
                     if not item.get("requisition_item_id"):
                         raise ValueError("Required Requisition Item Id")
@@ -2333,26 +2356,35 @@ class RequisitionItemForStockoutView(APIView):
                         raise ValueError("Required Approve Quantity")
                     if not item.get("stock_list"):
                         raise ValueError("Required Stock List")
-                    
+
                     requisition_item_id = item.get("requisition_item_id")
-                    requisition_item = RequisitionItem.objects.get(id=requisition_item_id)
+                    requisition_item = RequisitionItem.objects.get(
+                        id=requisition_item_id
+                    )
                     if requisition_item.is_fulfilled:
-                        raise ValueError(f"Requisition Item {requisition_item.product.name} already fulfilled.")
-                    net_required_quantity = requisition_item.requested_quantity - requisition_item.fulfilled_quantity
+                        raise ValueError(
+                            f"Requisition Item {requisition_item.product.name} already fulfilled."
+                        )
+                    net_required_quantity = (
+                        requisition_item.requested_quantity
+                        - requisition_item.fulfilled_quantity
+                    )
                     if int(item.get("approve_quantity")) > net_required_quantity:
                         raise ValueError(
                             f"Required quantity {net_required_quantity} is greather than approved quantity {item.get('approve_quantity')} for {requisition_item.product.name}."
                         )
 
                     stock_list = item.get("stock_list", [])
-                    stock_ids = [s["stock_id"] for s in stock_list if int(s["quantity"]) > 0]
+                    stock_ids = [
+                        s["stock_id"] for s in stock_list if int(s["quantity"]) > 0
+                    ]
                     stocks = (
                         Stocks.objects.select_related("product", "rack")
                         .filter(id__in=stock_ids)
                         .order_by("quantity")
                     )
                     obsolete_inventory_stock = []
-        
+
                     employee, created = Employees.objects.get_or_create(
                         personnel_number=requisition.requested_by.personnel_number,
                         defaults={
@@ -2371,7 +2403,7 @@ class RequisitionItemForStockoutView(APIView):
                             raise ValueError(
                                 f"Requisition Item {requisition_item.product.name} does not match with Stock {i.product.name}."
                             )
-                                            
+
                         if 0 < quantity <= i.quantity:
                             i.quantity -= quantity
                             i.save()
@@ -2391,7 +2423,9 @@ class RequisitionItemForStockoutView(APIView):
                                     .first()
                                 ):
                                     if lastStock != i:
-                                        obsolete_inventory_barcode = lastStock.barcode.barcode_no
+                                        obsolete_inventory_barcode = (
+                                            lastStock.barcode.barcode_no
+                                        )
                                 obsolete_inventory_stock.append(i.id)
 
                             StocksHistory.objects.create(
@@ -2404,21 +2438,30 @@ class RequisitionItemForStockoutView(APIView):
                                 is_stock_out=True,
                                 employee=employee,
                                 purpose=purpose,
-                                reference_no = requisition.reference_no,
+                                reference_no=requisition.reference_no,
                                 obsolete_inventory_barcode=obsolete_inventory_barcode,
                             )
 
-                            if (product.net_quantity < product.min_threshold and product not in lowStockProduct):
+                            if (
+                                product.net_quantity < product.min_threshold
+                                and product not in lowStockProduct
+                            ):
                                 lowStockProduct.append(product)
-                    
-                    net_fulfilled_quantity = requisition_item.fulfilled_quantity + out_quantity
-                    if  net_fulfilled_quantity == requisition_item.requested_quantity:
+
+                    net_fulfilled_quantity = (
+                        requisition_item.fulfilled_quantity + out_quantity
+                    )
+                    if net_fulfilled_quantity == requisition_item.requested_quantity:
                         requisition_item.is_fulfilled = True
                     requisition_item.fulfilled_quantity = net_fulfilled_quantity
                     requisition_item.save()
 
                 if requisition.items.filter(is_fulfilled=True).count() > 0:
-                    requisition.status = "FULFILLED" if requisition.items.filter(is_fulfilled=False).count() == 0 else "PARTIALLY_FULFILLED"
+                    requisition.status = (
+                        "FULFILLED"
+                        if requisition.items.filter(is_fulfilled=False).count() == 0
+                        else "PARTIALLY_FULFILLED"
+                    )
                     requisition.save()
 
                 if len(lowStockProduct) > 0:
@@ -2446,14 +2489,18 @@ class RequisitionItemForStockoutView(APIView):
             (s.get(required_value) for s in stock_list if s["stock_id"] == stock_id),
             default_output,
         )
-    
+
 
 class RequisitionView(APIView):
     def get(self, request, id=None):
         try:
             if id:
-                instance = Requisition.objects.prefetch_related("items__product").get(id=id)
-                serializer = RequisitionSerializer(instance, context={"include_items": True})
+                instance = Requisition.objects.prefetch_related("items__product").get(
+                    id=id
+                )
+                serializer = RequisitionSerializer(
+                    instance, context={"include_items": True}
+                )
                 return Response({"success": True, "data": serializer.data}, status=200)
             filter_criteria = Q()
             if query := request.GET.get("query"):
@@ -2463,7 +2510,11 @@ class RequisitionView(APIView):
                 )
             if status := request.GET.get("status"):
                 filter_criteria &= Q(status=status)
-            queryset = Requisition.objects.prefetch_related("items").filter(filter_criteria).order_by("-created_at")
+            queryset = (
+                Requisition.objects.prefetch_related("items")
+                .filter(filter_criteria)
+                .order_by("-created_at")
+            )
             serializer = RequisitionSerializer(queryset, many=True)
             return Response({"success": True, "data": serializer.data}, status=200)
 
@@ -2480,7 +2531,13 @@ class RequisitionView(APIView):
                 items = data.get("items", [])
 
                 if not fulfillment_date or not items:
-                    return Response({"success": False, "message": "Fulfillment and items are required"}, status=400)
+                    return Response(
+                        {
+                            "success": False,
+                            "message": "Fulfillment and items are required",
+                        },
+                        status=400,
+                    )
                 reference_no = generate_random_number("PR", 6)
                 while Requisition.objects.filter(reference_no=reference_no).exists():
                     reference_no = generate_random_number("PR", 6)
@@ -2493,7 +2550,7 @@ class RequisitionView(APIView):
                     requested_by=user,
                     status="PENDING",
                     total_material=total_material,
-                    total_quantity=0  # update below
+                    total_quantity=0,  # update below
                 )
 
                 for item in items:
@@ -2520,7 +2577,14 @@ class RequisitionView(APIView):
                 req.save()
 
                 serializer = RequisitionSerializer(req)
-                return Response({"success": True, "message": "Requisition created successfully", "data": serializer.data}, status=200)
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Requisition created successfully",
+                        "data": serializer.data,
+                    },
+                    status=200,
+                )
 
         except Exception as e:
             Syserror(e)
@@ -2535,14 +2599,27 @@ class RequisitionView(APIView):
                 items = data.get("items", [])
 
                 if not req_id or not reference_no or not items:
-                    return Response({"success": False, "message": "Missing required fields"}, status=400)
+                    return Response(
+                        {"success": False, "message": "Missing required fields"},
+                        status=400,
+                    )
 
                 req = Requisition.objects.filter(id=req_id).first()
                 if not req:
-                    return Response({"success": False, "message": "Requisition not found"}, status=404)
+                    return Response(
+                        {"success": False, "message": "Requisition not found"},
+                        status=404,
+                    )
 
-                if Requisition.objects.filter(reference_no=reference_no).exclude(id=req_id).exists():
-                    return Response({"success": False, "message": "Reference number already used"}, status=400)
+                if (
+                    Requisition.objects.filter(reference_no=reference_no)
+                    .exclude(id=req_id)
+                    .exists()
+                ):
+                    return Response(
+                        {"success": False, "message": "Reference number already used"},
+                        status=400,
+                    )
 
                 req.reference_no = reference_no
                 req.total_material = len(items)
@@ -2574,7 +2651,14 @@ class RequisitionView(APIView):
                 req.save()
 
                 serializer = RequisitionSerializer(req)
-                return Response({"success": True, "message": "Requisition updated successfully", "data": serializer.data}, status=200)
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Requisition updated successfully",
+                        "data": serializer.data,
+                    },
+                    status=200,
+                )
 
         except Exception as e:
             Syserror(e)
@@ -2585,18 +2669,33 @@ class RequisitionView(APIView):
             with transaction.atomic():
                 req_id = request.data.get("requisition_id")
                 if not req_id:
-                    return Response({"success": False, "message": "Requisition ID is required"}, status=400)
+                    return Response(
+                        {"success": False, "message": "Requisition ID is required"},
+                        status=400,
+                    )
 
                 instance = Requisition.objects.filter(id=req_id).first()
                 if not instance:
-                    return Response({"success": False, "message": "Requisition not found"}, status=404)
+                    return Response(
+                        {"success": False, "message": "Requisition not found"},
+                        status=404,
+                    )
 
                 if instance.status in ["FULFILLED", "REJECTED"]:
-                    return Response({"success": False, "message": "Cannot cancel fulfilled or rejected requisition"}, status=400)
+                    return Response(
+                        {
+                            "success": False,
+                            "message": "Cannot cancel fulfilled or rejected requisition",
+                        },
+                        status=400,
+                    )
 
                 instance.status = "REJECTED"
                 instance.save()
-                return Response({"success": True, "message": "Requisition cancelled successfully"}, status=200)
+                return Response(
+                    {"success": True, "message": "Requisition cancelled successfully"},
+                    status=200,
+                )
 
         except Exception as e:
             Syserror(e)
@@ -2607,8 +2706,12 @@ class ReservationView(APIView):
     def get(self, request, id=None):
         try:
             if id:
-                instance = Reservation.objects.prefetch_related("items__product", "items__source").get(id=id)
-                serializer = ReservationSerializer(instance, context={"include_items": True})
+                instance = Reservation.objects.prefetch_related(
+                    "items__product", "items__source"
+                ).get(id=id)
+                serializer = ReservationSerializer(
+                    instance, context={"include_items": True}
+                )
                 return Response({"success": True, "data": serializer.data}, status=200)
             filter_criteria = Q()
             if query := request.GET.get("query"):
@@ -2619,7 +2722,11 @@ class ReservationView(APIView):
                 )
             if status := request.GET.get("status"):
                 filter_criteria &= Q(status=status)
-            queryset = Reservation.objects.prefetch_related("items").filter(filter_criteria).order_by("-created_at")
+            queryset = (
+                Reservation.objects.prefetch_related("items")
+                .filter(filter_criteria)
+                .order_by("-created_at")
+            )
             serializer = ReservationSerializer(queryset, many=True)
             return Response({"success": True, "data": serializer.data}, status=200)
 
@@ -2637,11 +2744,20 @@ class ReservationView(APIView):
                 items = data.get("items", [])
 
                 if not reservation_type or not items:
-                    return Response({"success": False, "message": "Reservation type and items are required"}, status=400)
+                    return Response(
+                        {
+                            "success": False,
+                            "message": "Reservation type and items are required",
+                        },
+                        status=400,
+                    )
 
                 if Reservation.objects.filter(reference_no=reference_no).exists():
-                    return Response({"success": False, "message": "Reference number already used"}, status=400)
-                
+                    return Response(
+                        {"success": False, "message": "Reference number already used"},
+                        status=400,
+                    )
+
                 total_quantity = 0
                 total_material = len(items)
                 res = Reservation.objects.create(
@@ -2650,7 +2766,7 @@ class ReservationView(APIView):
                     reference_no=reference_no,
                     total_material=total_material,
                     total_quantity=0,  # update below
-                    status="PENDING"
+                    status="PENDING",
                 )
 
                 for item in items:
@@ -2659,7 +2775,9 @@ class ReservationView(APIView):
                     source_id = item.get("source")
 
                     if not product_id or not quantity or not source_id:
-                        raise ValueError("Each item must include product, quantity, and source")
+                        raise ValueError(
+                            "Each item must include product, quantity, and source"
+                        )
 
                     product = Products.objects.filter(id=product_id).first()
                     source = Source.objects.filter(id=source_id).first()
@@ -2673,7 +2791,7 @@ class ReservationView(APIView):
                         reservation=res,
                         product=product,
                         quantity=quantity,
-                        source=source
+                        source=source,
                     )
                     total_quantity += quantity
 
@@ -2681,7 +2799,14 @@ class ReservationView(APIView):
                 res.save()
 
                 serializer = ReservationSerializer(res)
-                return Response({"success": True, "message": "Reservation created successfully", "data": serializer.data}, status=200)
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Reservation created successfully",
+                        "data": serializer.data,
+                    },
+                    status=200,
+                )
 
         except Exception as e:
             Syserror(e)
@@ -2699,11 +2824,17 @@ class ReservationView(APIView):
                 items = data.get("items", [])
 
                 if not res_id or not reservation_type or not items:
-                    return Response({"success": False, "message": "Missing required fields"}, status=400)
+                    return Response(
+                        {"success": False, "message": "Missing required fields"},
+                        status=400,
+                    )
 
                 res = Reservation.objects.filter(id=res_id).first()
                 if not res:
-                    return Response({"success": False, "message": "Reservation not found"}, status=404)
+                    return Response(
+                        {"success": False, "message": "Reservation not found"},
+                        status=404,
+                    )
 
                 res.reservation_type = reservation_type
                 res.reference_no = reference_no
@@ -2717,7 +2848,9 @@ class ReservationView(APIView):
                     source_id = item.get("source")
 
                     if not product_id or not quantity or not source_id:
-                        raise ValueError("Each item must include product, quantity, and source")
+                        raise ValueError(
+                            "Each item must include product, quantity, and source"
+                        )
 
                     product = Products.objects.filter(id=product_id).first()
                     source = Source.objects.filter(id=source_id).first()
@@ -2731,12 +2864,19 @@ class ReservationView(APIView):
                         reservation=res,
                         product=product,
                         quantity=quantity,
-                        source=source
+                        source=source,
                     )
 
                 res.save()
                 serializer = ReservationSerializer(res)
-                return Response({"success": True, "message": "Reservation updated successfully", "data": serializer.data}, status=200)
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Reservation updated successfully",
+                        "data": serializer.data,
+                    },
+                    status=200,
+                )
 
         except Exception as e:
             Syserror(e)
@@ -2747,18 +2887,33 @@ class ReservationView(APIView):
             with transaction.atomic():
                 res_id = request.data.get("reservation_id")
                 if not res_id:
-                    return Response({"success": False, "message": "Reservation ID is required"}, status=400)
+                    return Response(
+                        {"success": False, "message": "Reservation ID is required"},
+                        status=400,
+                    )
 
                 instance = Reservation.objects.filter(id=res_id).first()
                 if not instance:
-                    return Response({"success": False, "message": "Reservation not found"}, status=404)
+                    return Response(
+                        {"success": False, "message": "Reservation not found"},
+                        status=404,
+                    )
 
                 if instance.status in ["FULFILLED", "REJECTED"]:
-                    return Response({"success": False, "message": "Cannot cancel fulfilled or rejected reservation"}, status=400)
+                    return Response(
+                        {
+                            "success": False,
+                            "message": "Cannot cancel fulfilled or rejected reservation",
+                        },
+                        status=400,
+                    )
 
                 instance.status = "REJECTED"
                 instance.save()
-                return Response({"success": True, "message": "Reservation cancelled successfully"}, status=200)
+                return Response(
+                    {"success": True, "message": "Reservation cancelled successfully"},
+                    status=200,
+                )
 
         except Exception as e:
             Syserror(e)
@@ -2769,32 +2924,38 @@ class ReservationItemForStockinView(APIView):
     def get(self, request, reservation_id=None):
         try:
             if not reservation_id:
-                return Response({"success": False, "message": "Required Reservation Id"}, status=400)
-            
-            reservation = Reservation.objects.prefetch_related("items", "items__product").get(id=reservation_id)
+                return Response(
+                    {"success": False, "message": "Required Reservation Id"}, status=400
+                )
+
+            reservation = Reservation.objects.prefetch_related(
+                "items", "items__product"
+            ).get(id=reservation_id)
             reservation_items = reservation.items.all()
             serializer = ReservationItemStockinSerializer(reservation_items, many=True)
             resp_data = {
-                "reservation":{
+                "reservation": {
                     "id": reservation.id,
                     "reserved_by": reservation.reserved_by.name,
                     "status": reservation.status,
                     "reservation_type": reservation.reservation_type,
                 },
-                "items": serializer.data
+                "items": serializer.data,
             }
             return Response({"success": True, "data": resp_data}, status=200)
-        
+
         except Exception as e:
             Syserror(e)
             return Response({"success": False, "message": str(e)}, status=400)
-        
-    # STOCK IN 
+
+    # STOCK IN
     def post(self, request, reservation_id=None):
         try:
             if not reservation_id:
-                return Response({"success": False, "message": "Required Requisition Id"}, status=400)
-            
+                return Response(
+                    {"success": False, "message": "Required Requisition Id"}, status=400
+                )
+
             if request.user.role == "User":
                 has_permissions = request.user.user_permission.get(
                     "manage_stockin", False
@@ -2816,8 +2977,10 @@ class ReservationItemForStockinView(APIView):
                         "message": "Required items List for reservation",
                     }
                     return Response(response, status=400)
-                
-                reservation = Reservation.objects.prefetch_related("items", "items__product").get(id=reservation_id, status="PENDING")
+
+                reservation = Reservation.objects.prefetch_related(
+                    "items", "items__product"
+                ).get(id=reservation_id, status="PENDING")
                 expired_date = None
                 is_used_stock_barcode = False
                 for item in reservation_items:
@@ -2825,20 +2988,24 @@ class ReservationItemForStockinView(APIView):
                         raise ValueError("Required Reservation Item Id")
                     if not item.get("stock_list"):
                         raise ValueError("Required Stock List")
-                    
+
                     reservation_item_id = item.get("reservation_item_id")
-                    reservation_item = ReservationItem.objects.get(id=reservation_item_id)
-                    
+                    reservation_item = ReservationItem.objects.get(
+                        id=reservation_item_id
+                    )
+
                     stock_list = item.get("stock_list", [])
                     source = reservation_item.source
                     quantity = reservation_item.quantity
                     product = reservation_item.product
                     for i in stock_list:
-                        barcode = Barcodes.objects.filter(barcode_no=i["barcode_no"].upper()).first()
+                        barcode = Barcodes.objects.filter(
+                            barcode_no=i["barcode_no"].upper()
+                        ).first()
                         if not barcode or not barcode.is_product_type:
                             raise ValueError("Invalid or non-material barcode.")
                         rack = Racks.objects.get(id=i["rack_id"])
-                        
+
                         if product.is_mutli_type_unit:
                             if barcode.status == "Used":
                                 if product.perishable_product:
@@ -2847,8 +3014,10 @@ class ReservationItemForStockinView(APIView):
                                         "message": "Barcode already used, Can not accept duplicate Barcode for perishable material",
                                     }
                                     return Response(response, status=400)
-                        
-                                is_same_product = barcode.stocks.all().exclude(product__id=product.id)
+
+                                is_same_product = barcode.stocks.all().exclude(
+                                    product__id=product.id
+                                )
                                 if is_same_product.count() != 0:
                                     response = {
                                         "success": False,
@@ -2869,14 +3038,18 @@ class ReservationItemForStockinView(APIView):
                                     "Perishable material can't be added directly without expired date."
                                 )
                             try:
-                                expired_date = datetime.strptime(expired_date, "%Y-%m-%d").date()
+                                expired_date = datetime.strptime(
+                                    expired_date, "%Y-%m-%d"
+                                ).date()
                             except ValueError:
                                 raise ValueError(
                                     "Invalid expired date format. required format is YYYY-MM-DD"
                                 )
                             if expired_date < datetime.now().date():
-                                raise ValueError("Expired date must be greater than current date.")
-                        
+                                raise ValueError(
+                                    "Expired date must be greater than current date."
+                                )
+
                         if is_used_stock_barcode:
                             instance = barcode.stocks.filter(rack=rack).first()
                             if instance:
@@ -2889,15 +3062,16 @@ class ReservationItemForStockinView(APIView):
                                     barcode=barcode,
                                     rack=rack,
                                     product=product,
-                                    expired_date=expired_date
+                                    expired_date=expired_date,
                                 )
                         else:
                             instance = Stocks.objects.create(
-                                    quantity=quantity,
-                                    barcode=barcode,
-                                    rack=rack,
-                                    product=product,
-                                    expired_date=expired_date)
+                                quantity=quantity,
+                                barcode=barcode,
+                                rack=rack,
+                                product=product,
+                                expired_date=expired_date,
+                            )
 
                         if barcode.status != "Used":
                             barcode.status = "Used"
@@ -2915,8 +3089,8 @@ class ReservationItemForStockinView(APIView):
                             product_quantity=product.net_quantity,
                             user=request.user,
                             is_stock_out=False,
-                        )                            
-                        
+                        )
+
                 reservation.status = "FULFILLED"
                 reservation.save()
                 response = {
@@ -2942,8 +3116,6 @@ class ReservationItemForStockinView(APIView):
             (s.get(required_value) for s in stock_list if s["stock_id"] == stock_id),
             default_output,
         )
-    
-
 
 
 class StockHistoryView(APIView, CustomPagination):
@@ -2998,7 +3170,7 @@ class StockHistoryView(APIView, CustomPagination):
                         "message": "Product Not Found",
                     }
                     return Response(response, status=400)
-            
+
             filter = Q()
             if query := request.GET.get("query"):
                 filter &= Q(
@@ -3015,29 +3187,29 @@ class StockHistoryView(APIView, CustomPagination):
                     | Q(reference_no__icontains=query)
                 )
 
-            if from_date:= request.GET.get("from_date", ""):
+            if from_date := request.GET.get("from_date", ""):
                 try:
                     from_date = datetime.strptime(from_date, "%Y-%m-%d").date()
                     filter &= Q(created_at__date__gte=from_date)
                 except:
                     pass
-            
-            if to_date:= request.GET.get("to_date", ""):
+
+            if to_date := request.GET.get("to_date", ""):
                 try:
                     to_date = datetime.strptime(to_date, "%Y-%m-%d").date()
                     filter &= Q(created_at__date__lte=to_date)
                 except:
                     pass
-            
+
             if history_status := request.GET.get("status"):
                 if history_status == "In":
                     filter &= Q(is_stock_out=False)
                 elif history_status == "Out":
                     filter &= Q(is_stock_out=True)
-            
+
             if history_type := request.GET.get("history_type"):
                 filter &= Q(history_type=history_type)
-            
+
             instance = (
                 StocksHistory.objects.select_related(
                     "stock",
@@ -3076,7 +3248,6 @@ class StockHistoryView(APIView, CustomPagination):
             Syserror(e)
             response = {"success": False, "message": str(e)}
             return Response(response, status=400)
-        
 
     def export_stock_history_to_excel(self, data, file_name):
         # print(buses_map)
@@ -3101,25 +3272,27 @@ class StockHistoryView(APIView, CustomPagination):
                 "Perform By",
                 "Source",
                 "Employee",
-                "Purpose"
+                "Purpose",
             ]
             sheet.append(headers)
 
             for row in data:
-                sheet.append([
-                    row.created_at.strftime("%d %b %Y, %I:%M %p"),
-                    row.stock.product.name,
-                    row.stock.product.ucs_code,
-                    row.stock.rack.rack_no,
-                    row.quantity,
-                    row.stock.barcode.barcode_no,
-                    f"{'STOCK OUT' if row.is_stock_out else 'STOCK IN' }",
-                    row.history_type,
-                    row.user.name,
-                    row.source.name if row.source else '',
-                    f"{row.employee.name if row.employee else ''}",
-                    f"{row.purpose or ''}"
-                ])
+                sheet.append(
+                    [
+                        row.created_at.strftime("%d %b %Y, %I:%M %p"),
+                        row.stock.product.name,
+                        row.stock.product.ucs_code,
+                        row.stock.rack.rack_no,
+                        row.quantity,
+                        row.stock.barcode.barcode_no,
+                        f"{'STOCK OUT' if row.is_stock_out else 'STOCK IN' }",
+                        row.history_type,
+                        row.user.name,
+                        row.source.name if row.source else "",
+                        f"{row.employee.name if row.employee else ''}",
+                        f"{row.purpose or ''}",
+                    ]
+                )
 
             # Adjust column widths
             for col in sheet.columns:
@@ -3141,9 +3314,9 @@ class StockHistoryView(APIView, CustomPagination):
                 content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
             response["Content-Disposition"] = f'attachment; filename="{file_name}"'
-            response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+            response["Access-Control-Expose-Headers"] = "Content-Disposition"
             return response
-        
+
         except Exception as e:
             Syserror(e)
             return Response({"success": False, "detail": str(e)}, status=400)
@@ -3160,15 +3333,17 @@ class BarcodeStockHistoryView(APIView, CustomPagination):
                     "message": "Required Material Barcode",
                 }
                 return Response(response, status=400)
-            
-            barcode = Barcodes.objects.filter(barcode_no=barcode.upper(), is_product_type=True).first()
+
+            barcode = Barcodes.objects.filter(
+                barcode_no=barcode.upper(), is_product_type=True
+            ).first()
             if not barcode:
                 response = {
                     "success": False,
                     "message": "Not a Valid Material barcode",
                 }
                 return Response(response, status=400)
-            
+
             f = Q(stock__barcode=barcode)
             if query := request.GET.get("query"):
                 f &= Q(
@@ -3211,6 +3386,7 @@ class BarcodeStockHistoryView(APIView, CustomPagination):
             response = {"success": False, "message": str(e)}
             return Response(response, status=400)
 
+
 class BarcodeView(APIView, CustomPagination):
     serializer_class = BarcodeSerializer
 
@@ -3246,7 +3422,9 @@ class BarcodeView(APIView, CustomPagination):
                 .order_by("-created_at")
             )
             if export := request.GET.get("export") == "true":
-                file_name = f"barcode-data-{datetime.now().strftime('%d%m%y-%H%M')}.xlsx"
+                file_name = (
+                    f"barcode-data-{datetime.now().strftime('%d%m%y-%H%M')}.xlsx"
+                )
                 return self.export_barcode_to_excel(instance, file_name)
 
             if page := self.paginate_queryset(instance, request, view=self):
@@ -3269,7 +3447,7 @@ class BarcodeView(APIView, CustomPagination):
             Syserror(e)
             response = {"success": False, "message": str(e)}
             return Response(response, status=400)
-        
+
     def export_barcode_to_excel(self, data, file_name):
         # print(buses_map)
         """
@@ -3280,19 +3458,17 @@ class BarcodeView(APIView, CustomPagination):
             sheet = workbook.active
             sheet.title = "sheet 1"
             # Headers
-            headers = [
-                "Barcode",
-                "Status",
-                "Created At"
-            ]
+            headers = ["Barcode", "Status", "Created At"]
             sheet.append(headers)
 
             for row in data:
-                sheet.append([
-                    row.barcode_no,
-                    row.status,
-                    row.created_at.strftime("%d %b %Y, %I:%M %p")
-                ])
+                sheet.append(
+                    [
+                        row.barcode_no,
+                        row.status,
+                        row.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    ]
+                )
 
             # Adjust column widths
             for col in sheet.columns:
@@ -3313,9 +3489,9 @@ class BarcodeView(APIView, CustomPagination):
                 content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
             response["Content-Disposition"] = f'attachment; filename="{file_name}"'
-            response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+            response["Access-Control-Expose-Headers"] = "Content-Disposition"
             return response
-        
+
         except Exception as e:
             Syserror(e)
             return Response({"success": False, "detail": str(e)}, status=400)
@@ -3371,7 +3547,7 @@ class BarcodeView(APIView, CustomPagination):
 
     def validate_barcode(self, barcode_no, product_id):
         barcode = Barcodes.objects.filter(barcode_no=barcode_no.upper()).first()
-        existing_rack=None
+        existing_rack = None
         if not barcode:
             response = {
                 "success": False,
@@ -3393,7 +3569,7 @@ class BarcodeView(APIView, CustomPagination):
                 "message": "Validations failed, required product id",
             }
             return Response(response, status=400)
-        
+
         if product.is_mutli_type_unit:
             if barcode.status == "Used":
 
@@ -3403,7 +3579,7 @@ class BarcodeView(APIView, CustomPagination):
                         "message": "Barcode already used, Can not accept duplicate Barcode for perishable material",
                     }
                     return Response(response, status=400)
-                
+
                 barcode_all_stock = barcode.stocks.all()
                 if barcode_all_stock.exclude(product__id=product_id).count() != 0:
                     response = {
@@ -3411,19 +3587,19 @@ class BarcodeView(APIView, CustomPagination):
                         "message": "Barcode already used in another material.",
                     }
                     return Response(response, status=400)
-                
+
                 first_stock = barcode_all_stock.first()
                 existing_rack = {
-                    "label":first_stock.rack.rack_no,
-                    "value":first_stock.rack.id
+                    "label": first_stock.rack.rack_no,
+                    "value": first_stock.rack.id,
                 }
 
         elif barcode.status == "Used":
-                response = {
-                    "success": False,
-                    "message": "Barcode already used, Can not accept duplicate Barcode for single unit type material",
-                }
-                return Response(response, status=400)
+            response = {
+                "success": False,
+                "message": "Barcode already used, Can not accept duplicate Barcode for single unit type material",
+            }
+            return Response(response, status=400)
 
         response = {
             "success": True,
@@ -3461,7 +3637,7 @@ class BarcodeView(APIView, CustomPagination):
                 "message": "Stock not found",
             }
             return Response(response, status=400)
-        
+
         stock = barcode.stocks.first()
         histoty = stock.stockshistory_set.filter(
             history_type="MATERIAL CONSUMPTION", is_stock_out=True
@@ -3549,7 +3725,9 @@ class SearchRequisitionsView(APIView):
 
     def get(self, request):
         try:
-            instance = Requisition.objects.filter(status__in=["PENDING", "PARTIALLY_FULFILLED"]).order_by("-created_at")
+            instance = Requisition.objects.filter(
+                status__in=["PENDING", "PARTIALLY_FULFILLED"]
+            ).order_by("-created_at")
             serializer = self.serializer_class(instance, many=True)
             data = serializer.data
             response = {
@@ -3569,7 +3747,9 @@ class SearchReservationsView(APIView):
 
     def get(self, request):
         try:
-            instance = Reservation.objects.filter(status="PENDING").order_by("-created_at")
+            instance = Reservation.objects.filter(status="PENDING").order_by(
+                "-created_at"
+            )
             serializer = self.serializer_class(instance, many=True)
             data = serializer.data
             response = {
@@ -3582,7 +3762,6 @@ class SearchReservationsView(APIView):
             Syserror(e)
             response = {"success": False, "message": str(e)}
             return Response(response, status=400)
-
 
 
 class SearchRacksView(APIView):
@@ -3664,12 +3843,22 @@ class SearchMaterialView(APIView):
 
     def get(self, request):
         try:
-            include_net_qunatity = request.GET.get("add_net_quantity", "true").lower() == "true"
-            instance = Products.objects.filter(is_active=True).only("name", "id").order_by("name")
+            include_net_qunatity = (
+                request.GET.get("add_net_quantity", "true").lower() == "true"
+            )
+            instance = (
+                Products.objects.filter(is_active=True)
+                .only("name", "id")
+                .order_by("name")
+            )
             response = {
                 "success": True,
                 "message": "Material List  Succesfully",
-                "data": SearchMaterialSerializer(instance, many=True, context={"include_net_quantity": include_net_qunatity}).data,
+                "data": SearchMaterialSerializer(
+                    instance,
+                    many=True,
+                    context={"include_net_quantity": include_net_qunatity},
+                ).data,
             }
             return Response(response, status=200)
         except Exception as e:
@@ -3689,7 +3878,7 @@ class SearchProductView(APIView):
                         | Q(stocks__barcode__barcode_no__icontains=query)
                         | Q(ucs_code__icontains=query)
                     )
-                    .values("name", "ucs_code",  "id")
+                    .values("name", "ucs_code", "id")
                     .distinct()
                     .order_by("name")
                 )
@@ -4077,6 +4266,7 @@ class EmployeeView(APIView, CustomPagination):
                 data = request.data
                 personnel_number = data.get("personnel_number", None)
                 name = data.get("name", None)
+                shoe_size = data.get("shoe_size", None)
                 if not name:
                     response = {
                         "success": False,
@@ -4100,6 +4290,7 @@ class EmployeeView(APIView, CustomPagination):
                     name=name,
                     personnel_number=personnel_number,
                     phone=data.get("phone", None),
+                    shoe_size=shoe_size,
                 )
                 response = {
                     "success": True,
@@ -4122,6 +4313,7 @@ class EmployeeView(APIView, CustomPagination):
                 employee_id = data.get("employee_id", None)
                 name = data.get("name", None)
                 personnel_number = data.get("personnel_number", None)
+                shoe_size = data.get("shoe_size", None)
                 if not name:
                     response = {
                         "success": False,
@@ -4143,6 +4335,7 @@ class EmployeeView(APIView, CustomPagination):
                 instance.name = name
                 instance.personnel_number = personnel_number
                 instance.phone = data.get("phone", None)
+                instance.shoe_size = shoe_size
                 instance.save()
                 response = {
                     "success": True,
@@ -4429,10 +4622,8 @@ class UserView(APIView, CustomPagination):
                     role="User",
                 )
                 Employees.objects.create(
-                    name=name,
-                    personnel_number=personnel_number,
-                    phone=mobile_number    
-                    )
+                    name=name, personnel_number=personnel_number, phone=mobile_number
+                )
                 response = {
                     "success": True,
                     "message": "User Created  Successfully",
@@ -5394,8 +5585,8 @@ class ReportInventoryException(APIView):
             return Response(response, status=400)
 
 
-
 # forecast
+
 
 class ProductForecastView(APIView):
     def __init__(self, *args, **kwargs):
