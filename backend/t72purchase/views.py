@@ -2,7 +2,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
-from AdminApp.models import T72Purchase, T72Status, T72ItemIssuedHistory
+from AdminApp.models import (
+    T72Purchase,
+    T72PurchaseItem,
+    T72Status,
+    T72ItemIssuedHistory,
+)
 from .serializers import (
     T72CreateUpdateSerializer,
     T72ListSerializer,
@@ -23,6 +28,7 @@ class T72ListCreateAPIView(APIView, CustomPagination):
             qs = qs.filter(
                 Q(party_name__icontains=query)
                 | Q(items__item_name__icontains=query)
+                | Q(items__location__icontains=query)
                 | Q(daybook_number__icontains=query)
                 | Q(order_number__icontains=query)
                 | Q(challan_number__icontains=query)
@@ -299,3 +305,62 @@ class T72IssuedHistoryExportAPIView(APIView):
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         df.to_excel(response, index=False)
         return response
+
+
+from django.db.models import Sum
+
+
+class T72ItemsSummaryAPIView(APIView, CustomPagination):
+    def get(self, request):
+        query = request.GET.get("query")
+        # Aggregate by item_name
+        qs = (
+            T72PurchaseItem.objects.values("item_name")
+            .annotate(
+                total_quantity=Sum("quantity"),
+                total_available=Sum("available_quantity"),
+            )
+            .filter(total_available__gt=0)  # ONLY SHOW AVAILABLE
+            .order_by("item_name")
+        )
+
+        if query:
+            qs = qs.filter(item_name__icontains=query)
+
+        page = self.paginate_queryset(qs, request, view=self)
+        # page is a list of dicts now
+
+        return self.get_paginated_response(page)
+
+
+class T72ItemDetailsAPIView(APIView):
+    def get(self, request):
+        item_name = request.GET.get("item_name")
+        if not item_name:
+            return Response({"error": "Item Name required"}, status=400)
+
+        qs = (
+            T72PurchaseItem.objects.filter(
+                item_name=item_name, available_quantity__gt=0
+            )  # Only show available instances
+            .select_related("purchase")
+            .order_by("-purchase__receive_date")
+        )
+
+        data = []
+        for item in qs:
+            data.append(
+                {
+                    "id": item.id,
+                    "order_number": item.purchase.order_number,
+                    "receive_date": item.purchase.receive_date,
+                    "quantity": int(item.quantity) if item.quantity else 0,
+                    "available_quantity": (
+                        int(item.available_quantity) if item.available_quantity else 0
+                    ),
+                    "unit": item.unit,
+                    "location": item.location,
+                }
+            )
+
+        return Response(data)
